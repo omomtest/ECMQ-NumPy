@@ -26,9 +26,9 @@
 #include "umathmodule.h"
 
 #include <opcode.h>
-#ifdef CMLQ_PAPI
-#include <papi.h>
-#endif
+//#ifdef CMLQ_PAPI
+// #include <papi.h>
+// #endif
 
 /*************************************************************************
  ****************   Implement Number Protocol ****************************
@@ -313,7 +313,8 @@ array_add(PyObject *m1, PyObject *m2)
     if (try_binary_elide(m1, m2, &array_inplace_add, &res, 1)) {
         return res;
     }
-    CMLQ_PAPI_REGION("array_add", PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.add));
+    PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.add);
+    //CMLQ_PAPI_REGION("array_add", PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.add));
     return result;
 }
 
@@ -326,7 +327,8 @@ array_subtract(PyObject *m1, PyObject *m2)
     if (try_binary_elide(m1, m2, &array_inplace_subtract, &res, 0)) {
         return res;
     }
-    CMLQ_PAPI_REGION("array_subtract", PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.subtract));
+     PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.subtract);
+    //CMLQ_PAPI_REGION("array_subtract", PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.subtract));
     return result;
 }
 
@@ -339,7 +341,8 @@ array_multiply(PyObject *m1, PyObject *m2)
     if (try_binary_elide(m1, m2, &array_inplace_multiply, &res, 1)) {
         return res;
     }
-    CMLQ_PAPI_REGION("array_multiply", PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.multiply));
+    PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.multiply);
+    //CMLQ_PAPI_REGION("array_multiply", PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.multiply));
     return result;
 }
 
@@ -911,7 +914,8 @@ array_true_divide(PyObject *m1, PyObject *m2)
             try_binary_elide(m1, m2, &array_inplace_true_divide, &res, 0)) {
         return res;
     }
-    CMLQ_PAPI_REGION("array_true_divide", PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.true_divide));
+    PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.true_divide);
+    //CMLQ_PAPI_REGION("array_true_divide", PyObject *result = PyArray_GenericBinaryFunction(m1, m2, n_ops.true_divide));
     return result;
 }
 

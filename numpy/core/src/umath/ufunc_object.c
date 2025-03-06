@@ -60,9 +60,9 @@
 #include "legacy_array_method.h"
 #include "abstractdtypes.h"
 
-#ifdef CMLQ_PAPI
-#include <papi.h>
-#endif
+//#ifdef CMLQ_PAPI
+//#include <papi.h>
+//#endif
 
 
 /* TODO: Only for `NpyIter_GetTransferFlags` until it is public */
@@ -1492,8 +1492,9 @@ try_trivial_single_output_loop(PyArrayMethod_Context *context,
     if (!(flags & NPY_METH_REQUIRES_PYAPI)) {
         NPY_BEGIN_THREADS_THRESHOLDED(count);
     }
+    int res = strided_loop(context, data, &count, fixed_strides, auxdata);
+    //CMLQ_PAPI_REGION("core_loop", int res = strided_loop(context, data, &count, fixed_strides, auxdata));
 
-    CMLQ_PAPI_REGION("core_loop", int res = strided_loop(context, data, &count, fixed_strides, auxdata));
 
     NPY_END_THREADS;
     NPY_AUXDATA_FREE(auxdata);

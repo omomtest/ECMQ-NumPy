@@ -1,6 +1,6 @@
 ${signature}
 {
-    CMLQ_PAPI_BEGIN("${opname}")
+    //CMLQ_PAPI_BEGIN("${opname}")
     %if locality_cache or locality_stats or cache_broadcast_array:
     <%include file="load_cache_elem.mako"/>
     %endif
@@ -52,7 +52,7 @@ success:
     (*stack_pointer_ptr)--;
     assert(PyArray_CheckExact(result));
     (*stack_pointer_ptr)[-1] = (PyObject *)result;
-    CMLQ_PAPI_END("${opname}")
+    //CMLQ_PAPI_END("${opname}")
     return 0;
 fail:
     return -1;

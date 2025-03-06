@@ -1028,6 +1028,47 @@ cmlq_binop_case_guards = custom_target(
   command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--binop-case-guards'],
 )
 
+cmlq_min = custom_target(
+  'cmlq-min',
+  build_always_stale: true,
+  build_by_default: true,
+  output: 'cmlq_minimum.h',
+  input: 'code_generators/cmlq_generator.py',
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','minimum'],
+)
+cmlq_max = custom_target(
+  'cmlq-max',
+  build_always_stale: true,
+  build_by_default: true,
+  output: 'cmlq_maximum.h',
+  input: 'code_generators/cmlq_generator.py',
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','maximum'],
+)
+cmlq_add=custom_target(
+  'cmlq-add',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_add.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','add']
+)
+cmlq_subtract=custom_target(
+  'cmlq-subtract',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_subtract.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','subtract']
+)
+cmlq_multiply=custom_target(
+  'cmlq-multiply',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_multiply.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','multiply']
+)
+
 src_multiarray = multiarray_gen_headers + [
   'src/multiarray/abstractdtypes.c',
   'src/multiarray/alloc.c',
@@ -1077,6 +1118,11 @@ src_multiarray = multiarray_gen_headers + [
   'src/multiarray/number.c',
   cmlq_code,
   cmlq_binop_case_guards,
+  cmlq_min,
+  cmlq_max,
+  cmlq_add,
+  cmlq_subtract,
+  cmlq_multiply,
   'src/multiarray/refcount.c',
   src_file.process('src/multiarray/scalartypes.c.src'),
   'src/multiarray/sequence.c',

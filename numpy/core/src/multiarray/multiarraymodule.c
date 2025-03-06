@@ -4544,7 +4544,13 @@ _using_numpy2_behavior(
 #ifdef CMLQ_STATS
 NPY_NO_EXPORT PyObject *get_cache_stats();
 #endif
-
+/*
+调用标志：
+METH_NOARGS 表示该方法不接受参数。
+METH_VARARGS 表示该方法接受可变数量的位置参数。
+METH_KEYWORDS 表示该方法接受关键字参数。可以使用按位或运算符（|）组合这些标志。
+文档字符串：这里都为NULL，表示没有文档字符串
+ */
 static struct PyMethodDef array_module_methods[] = {
 #ifdef CMLQ_STATS
     {"get_cmlq_stats",
@@ -5096,14 +5102,12 @@ static struct PyModuleDef moduledef = {
 int cmlq_subscript_constant_slice(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr);
 
 #define SLOT_SUBSCRIPT_CONSTANT_SLICE NEXT_SLOT()
-
+//检查是否为常量切片
 static int is_constant_slice(_Py_CODEUNIT *instr)
 {
     if (instr->op.code != BUILD_SLICE) {
         return 0;
     }
-
-
     if ((instr - 1)->op.code != LOAD_CONST ||
             (instr - 2)->op.code != LOAD_CONST) {
         return 0;
@@ -5115,7 +5119,7 @@ static int is_constant_slice(_Py_CODEUNIT *instr)
 
     return (instr - 3)->op.code == LOAD_CONST;
 }
-
+//元组下标操作
 static int is_constant_tuple_subscript(_Py_CODEUNIT *instr)
 {
     if (instr->op.code != BUILD_TUPLE) {
@@ -5187,7 +5191,7 @@ report_missing_binop_case(_Py_CODEUNIT *instr, PyObject *lhs, PyObject *rhs) {
     //     fprintf(stderr, "\n");
     // }
 }
-
+//处理特化二元运算
 static int
 np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
 {
@@ -5200,10 +5204,10 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
         case BINARY_OP: {
             PyObject *rhs = STACK_ELEMENT(-1);
             PyObject *lhs = STACK_ELEMENT(-2);
-
+            //非numpy数组子类型或numpy数组
             assert(PyArray_CheckExact(lhs) || !PyArray_Check(lhs));
             assert(PyArray_CheckExact(rhs) || !PyArray_Check(rhs));
-
+        
             switch (instr->op.arg) {
 #include "cmlq_binop_case_guards.h"
 
@@ -5218,9 +5222,9 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
             PyObject *subscript = STACK_ELEMENT(-1);
             PyObject *array = STACK_ELEMENT(-2);
             if (PyArray_CheckExact(array) && !PyDataType_HASFIELDS(PyArray_DESCR((PyArrayObject *)array))) {
-                if (PyTuple_CheckExact(subscript)) {
+                if (PyTuple_CheckExact(subscript)) {//下标元组
                     if (is_constant_tuple_subscript(instr - 1)) {
-
+                        //返回索引类型
                         int index_type = mapping_cache_index_preparation(&subscript_cache[next_subscript_cache_index+1], (PyArrayObject *)array, subscript);;
 
                         if (index_type == HAS_INTEGER) {
@@ -5228,7 +5232,7 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                             // TODO: implement
                             printf("Can't specialize pure integer\n");
                             return 0;
-                        }
+                        }//有整数索引、切片索引、布尔索引、花式索引、省略号索引、新轴索引等
 
                         if (index_type == HAS_BOOL) {
                             // pure boolean subscript
@@ -5250,15 +5254,15 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                             if (index_type & HAS_SCALAR_ARRAY) {
                                 // scalar array, force copy
                                 // TODO: implement
-                                printf("Can't specialize scalar array\n");
+                                printf("Can't specialize scalar array\n");//处理标量数组
                                 return 0;
                             }
 
-                            if(index_type & HAS_FANCY) {
+                            if(index_type & HAS_FANCY) {//花式索引
                                // fancy indexing
                                 return 0;
                             }
-
+                           
                             unsigned char unused_args = 1;
                             ++next_subscript_cache_index;
                             specializer_info.SpecializeChain(instr, *stack_pointer, SLOT_SUBSCRIPT_CONSTANT_SLICE, cmlq_subscript_constant_slice, unused_args, &subscript_cache[next_subscript_cache_index]);
@@ -5295,28 +5299,21 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                 // equivalence with the objects created in __umath_generated.c.
                 // From these objects we also know exactly their properties
                 // (e.g. no generalized ufunc etc)
-                if (strcmp(name, "minimum") == 0) {
-                    PyObject *rhs = STACK_ELEMENT(-1);
-                    PyObject *lhs = STACK_ELEMENT(-2);
-
-                    if (PyArray_CheckExact(lhs) &&
-                        PyArray_DESCR((PyArrayObject *)lhs)->type_num == NPY_INT &&
-                        PyArray_CheckExact(rhs) &&
-                        PyArray_DESCR((PyArrayObject *)rhs)->type_num == NPY_INT) {
-                        ++next_result_cache_index;
-#ifdef CMLQ_STATS
-                        locality_cache[next_result_cache_index].stats.instr_ptr = instr;
-#endif
-
-                        specializer_info.SpecializeInstruction(instr, SLOT_MINIMUM_AINT_AINT, cmlq_minimum_aint_aint, &locality_cache[next_result_cache_index]);
-                        return 1;
-                    }
-                }
+                if (strcmp(name, "minimum") == 0 && instr->op.arg == 2) {
+#include "cmlq_minimum.h"
+                }else if(strcmp(name,"maximum")==0 && instr->op.arg == 2){
+#include "cmlq_maximum.h"
+                 }else if(strcmp(name,"add")==0 && instr->op.arg == 2){
+#include "cmlq_add.h"
+                 }else if (strcmp(name, "subtract") == 0 && instr->op.arg == 2) {
+#include "cmlq_subtract.h"
+                 }else if (strcmp(name, "multiply") == 0 && instr->op.arg == 2) {
+#include "cmlq_multiply.h"
+                 }
             }
             break;
-        }
+}
     }
-
     return 0;
 }
 
@@ -5519,7 +5516,7 @@ PyMODINIT_FUNC PyInit__multiarray_umath(void) {
         goto err;
     }
 
-    c_api = PyCapsule_New((void *)PyArray_API, NULL, NULL);
+    c_api = PyCapsule_New((void *)PyArray_API, NULL, NULL);//PyCapsule ：python 和c间传递不透明的指针
     if (c_api == NULL) {
         goto err;
     }

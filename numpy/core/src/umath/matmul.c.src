@@ -494,6 +494,80 @@ NPY_NO_EXPORT void
                  * non-blasable (or non-ccontiguous output)
                  * we could still use BLAS, see gh-12365.
                  */
+                                   /*******************************************修改区域***************************************************/
+                 
+         
+                  npy_bool flag=NPY_FALSE;
+                  npy_bool flag1=NPY_TRUE;
+                     if(!i1blasable){
+                      //如果矩阵不连续，则复制到连续的内存中
+                       double* temp=(double*)malloc(dm*dn*sz);
+                      if(temp!=NULL){
+                          flag=NPY_TRUE;
+                          //复制数组到连续的内存中
+                          /*已知条件
+                          *ip1指向的是矩阵首地址
+                          *is1_m是行步幅，两行之间的步幅
+                          *is1_n是列步幅，两列之间的步幅
+                          */
+                         for(int i=0;i<dm;i++){
+                            for(int j=0;j<dn;j++){
+                                temp[i*dn+j]=*((double*)ip1); 
+                                ip1+=is1_n;
+                            }
+                            ip1-=(is1_n*dn);
+                            ip1+=is1_m;
+                        }
+                          //复制结束
+                          ip1=(double*)temp;
+                          is1_m=dn*sz;
+                          is1_n=sz;
+                         }else{
+                            flag1=NPY_FALSE;
+                         }                       
+                      }
+                      if(!i2blasable){
+                            double* temp2=(double*)malloc(dn*dp*sz);
+                            if(temp2!=NULL){
+                               flag=NPY_TRUE;
+                             //复制数组到连续的内存中
+                            /*已知条件
+                             *ip2指向的是矩阵首地址
+                             *is2_n是行步幅，两行之间的步幅
+                             *is2_p是列步幅，两列之间的步幅
+                             */
+                              for(int i=0;i<dn;i++){
+                                  for(int j=0;j<dp;j++){
+                                      temp2[i * dp + j]=*((double*)ip2);
+                                      ip2+=is2_p;
+                                  }
+                                  ip2-=(is2_p*dn);
+                                  ip2+=is2_n;
+                            }
+                             //复制结束
+                               ip2=(double*)temp2;
+                                is2_n=dp*sz;
+                                is2_p=sz;
+                            }else{
+                                flag=NPY_FALSE;                               
+                            }                 
+                           }                
+                        if(flag==NPY_TRUE&&flag1==NPY_TRUE&&o_f_blasable){
+                            @TYPE@_matmul_matrixmatrix(ip2, is2_p, is2_n,
+                                           ip1, is1_n, is1_m,
+                                           op, os_p, os_m,
+                                           dp, dn, dm);                           
+                        }else if(flag==NPY_TRUE&&flag1==NPY_TRUE&&o_c_blasable){
+                            @TYPE@_matmul_matrixmatrix(ip1, is1_m, is1_n,
+                                           ip2, is2_n, is2_p,
+                                           op, os_m, os_p,
+                                           dm, dn, dp);
+                        }         
+                         else
+     
+     
+ /*********************************************修改区域结束**********************************************/
+                 
                 @TYPE@_matmul_inner_noblas(ip1, is1_m, is1_n, 
                                            ip2, is2_n, is2_p,
                                            op, os_m, os_p, dm, dn, dp);

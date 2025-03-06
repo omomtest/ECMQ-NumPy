@@ -137,7 +137,8 @@
         ${auxdata_init()}
         %endif
 
-        CMLQ_PAPI_REGION("core_loop", ${loop_function}(data, &count, fixed_strides, auxdata));
+        ${loop_function}(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", ${loop_function}(data, &count, fixed_strides, auxdata));
 
         NPY_END_THREADS;
 
@@ -267,7 +268,8 @@
 
         /* Execute the loop */
         do {
-            CMLQ_PAPI_REGION("core_loop", ${loop_function}(dataptr, countptr, strides, auxdata));
+            ${loop_function}(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", ${loop_function}(dataptr, countptr, strides, auxdata));
         } while (iternext(iter));
 
         NPY_END_THREADS;

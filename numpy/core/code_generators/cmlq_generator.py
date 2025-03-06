@@ -519,6 +519,119 @@ def build_derivatives(flatten, cache_stats):
             loop_function="INT_minimum",
             impl_template="function_binop.mako",
         ),
+        FunctionBinOp(
+            operation="minimum",
+            left_type="afloat",
+            right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_minimum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="minimum",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_minimum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="maximum",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_maximum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="maximum",
+            left_type="afloat",
+            right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_maximum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="maximum",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_maximum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="add",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_add",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="add",
+            left_type="afloat",
+            right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_add",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="add",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_add",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="subtract",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_subtract",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="subtract",
+            left_type="afloat",
+            right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_subtract",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="subtract",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_subtract",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="multiply",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_multiply",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="multiply",
+            left_type="afloat",
+            right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_multiply",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="multiply",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_multiply",
+            impl_template="function_binop.mako",
+        ),
+
     ]
 
 
@@ -610,7 +723,31 @@ def generate_case_guards(derivatives, lookup, out):
         print(
             "}",
         )
+def generate_func_case_guards(derivatives, lookup, out,funtion):
+    global print
+    print = functools.partial(print, file=out)
 
+    binops = [
+        d
+        for d in derivatives
+        if isinstance(d, BinOp) and  isinstance(d, FunctionBinOp) and d.operation == funtion
+    ]
+    groups = defaultdict(list)
+    for binop in binops:
+        name = binop.operation
+        groups[name].append(binop)
+    print("\tPyObject *rhs = STACK_ELEMENT(-1);")
+    print("\tPyObject *lhs = STACK_ELEMENT(-2);")
+    for group_name, group in groups.items():
+        for derivative in group:
+            if not derivative.guard_template:
+                continue
+            template = lookup.get_template(derivative.guard_template)
+            template_args = derivative.to_template_args()
+            render_template(template, template_args, out)
+        print(
+            "\treport_missing_binop_case(instr, lhs, rhs);\n"
+        )
 
 def generate_declarations(derivatives, out):
     global print
@@ -622,6 +759,11 @@ def generate_declarations(derivatives, out):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-o", "--outfile", type=str, help="Path to the output file")
+parser.add_argument(
+    "--funcname",
+    type=str,
+    help="Generate  function "
+)
 group = parser.add_mutually_exclusive_group()
 
 group.add_argument(
@@ -637,6 +779,13 @@ group.add_argument(
     action="store_true",
     help="Generate cases for the specialization switch",
 )
+group.add_argument(
+    "-g",
+    "--func",
+    action="store_true",
+    help="Generate function  for the specialization switch",
+)
+
 parser.add_argument(
     "-s",
     "--cache-stats",
@@ -666,5 +815,7 @@ with smart_open(args.outfile) as out:
         generate_case_guards(derivatives, lookup, out)
     elif args.declarations:
         generate_declarations(derivatives, out)
+    elif args.func :
+        generate_func_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["funcname"])
     else:
         generate_implementations(derivatives, lookup, out)
