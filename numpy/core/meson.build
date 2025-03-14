@@ -1068,7 +1068,22 @@ cmlq_multiply=custom_target(
   input:'code_generators/cmlq_generator.py',
   command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','multiply']
 )
-
+cmlq_square=custom_target(
+  'cmlq-square',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_square.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','square']
+)
+cmlq_sqrt=custom_target(
+  'cmlq-sqrt',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_sqrt.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','sqrt']
+)
 src_multiarray = multiarray_gen_headers + [
   'src/multiarray/abstractdtypes.c',
   'src/multiarray/alloc.c',
@@ -1123,6 +1138,8 @@ src_multiarray = multiarray_gen_headers + [
   cmlq_add,
   cmlq_subtract,
   cmlq_multiply,
+  cmlq_square,
+  cmlq_sqrt,
   'src/multiarray/refcount.c',
   src_file.process('src/multiarray/scalartypes.c.src'),
   'src/multiarray/sequence.c',

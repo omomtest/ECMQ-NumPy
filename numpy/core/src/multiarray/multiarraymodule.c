@@ -5224,7 +5224,7 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
             if (PyArray_CheckExact(array) && !PyDataType_HASFIELDS(PyArray_DESCR((PyArrayObject *)array))) {
                 if (PyTuple_CheckExact(subscript)) {//下标元组
                     if (is_constant_tuple_subscript(instr - 1)) {
-                        //返回索引类型
+                        //返回索引类型，内部将一个复杂的索引结构拆解为几个简单的索引类型，每个bit表示存在一种类型。
                         int index_type = mapping_cache_index_preparation(&subscript_cache[next_subscript_cache_index+1], (PyArrayObject *)array, subscript);;
 
                         if (index_type == HAS_INTEGER) {
@@ -5309,14 +5309,17 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
 #include "cmlq_subtract.h"
                  }else if (strcmp(name, "multiply") == 0 && instr->op.arg == 2) {
 #include "cmlq_multiply.h"
-                 }
+                 }else if (strcmp(name,"sqare")==0){
+#include "cmlq_square.h"
+                 }else if (strcmp(name,"sqrt")==0){
+#include "cmlq_sqrt.h"
             }
             break;
 }
     }
     return 0;
 }
-
+}
 #ifdef CMLQ_STATS
 #include "cmlq.h"
 

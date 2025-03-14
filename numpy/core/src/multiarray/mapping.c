@@ -825,9 +825,9 @@ get_view_from_index(PyArrayObject *self, PyArrayObject **view,
     npy_intp new_strides[NPY_MAXDIMS];
     npy_intp new_shape[NPY_MAXDIMS];
     int i, j;
-    int new_dim = 0;
-    int orig_dim = 0;
-    char *data_ptr = PyArray_BYTES(self);
+    int new_dim = 0;//返回视图维度数
+    int orig_dim = 0;//数组维度数
+    char *data_ptr = PyArray_BYTES(self);//初始指向输入数组的数据起始地址。
 
     /* for slice parsing */
     npy_intp start, stop, step, n_steps;
@@ -842,7 +842,6 @@ get_view_from_index(PyArrayObject *self, PyArrayObject **view,
                 }
                 data_ptr += PyArray_STRIDE(self, orig_dim) * indices[i].value;
 
-                new_dim += 0;
                 orig_dim += 1;
                 break;
             case HAS_ELLIPSIS:
@@ -1313,6 +1312,7 @@ array_item(PyArrayObject *self, Py_ssize_t i)
 
 
 #include "cmlq.h"
+
 
 int mapping_cache_index_preparation(CMLQSubscriptCacheElem *restrict elem, PyArrayObject *array, PyObject *subscript)
 {

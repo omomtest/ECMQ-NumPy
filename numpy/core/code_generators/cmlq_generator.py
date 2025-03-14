@@ -129,7 +129,9 @@ class BinOp:
         if self.flatten:
             signature = f"__attribute__((flatten)) {signature}"
         args["signature"] = signature
+    
         args["slot_name"] = self.slot_name()
+        
         args["with_broadcast_cache_variant"] = self.with_broadcast_cache_variant
 
         return args
@@ -151,6 +153,78 @@ class BinOp:
 
         return [self]
 
+@define(kw_only=True)
+class OneOp:
+    left_type: str
+    left_promotion: str = None
+    result_type: str
+
+    # like the above, but does not force promotion if the Python scalar does not fit into the NumPy type
+    # this is useful, e.g., when trying to promote a Python float (which can be both a float or a double) to a
+    # Numpy float array
+    left_conditional_promotion: bool = False
+    # should the operation overwrite the left operand?
+    inplace: bool = False
+
+    opname: str = ""
+    operation: str
+    loop_function: str
+
+    impl_template: str = "arith_oneop.mako"
+    guard_template: str = "oneop_case_guard.mako"
+    flatten: bool = False
+
+    # cache various intermediate results per instruction occurence
+    locality_cache: bool = True
+
+    # disabled, we adaptively free the cache instead
+    # locality_cache_size_limit: int = os.sysconf('SC_PAGE_SIZE')
+
+    # maintain cache statistics and print after this many instruction occurences
+    locality_stats: bool = False
+
+    # maintain a cache and statisticst, but never use the cache, only analyze locality
+    analyze_locality: bool = False
+
+    def __attrs_post_init__(self):
+        if self.inplace and not self.operation.startswith("inplace_"):
+            self.operation = f"inplace_{self.operation}"
+
+        if self.opname == "":
+            self.opname = f"cmlq_{self.left_type}_{self.operation}"
+            
+    def is_python_scalar(self, type):
+        return type.startswith("s")
+
+    def to_template_args(self):
+        args = attrs.asdict(self)
+        if self.is_python_scalar(self.left_type):
+            args["left_scalar_name"] = to_python_type(self.left_type)
+        else:
+            args["left_numpy_name"] = to_numpy_type(self.left_type)
+
+        signature = self.signature()
+        if self.flatten:
+            signature = f"__attribute__((flatten)) {signature}"
+        args["signature"] = signature
+    
+        args["slot_name"] = self.slot_name()
+
+        return args
+
+    def slot_name(self):
+        return f"SLOT_{self.left_type.upper()}_{self.operation.upper()}_{self.right_type.upper()}"
+
+    def signature(self):
+        return f"""int {self.opname}(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)"""
+
+    def slot_define(self):
+        global next_slot
+        next_slot += 1
+        return f"""#define {self.slot_name()} {next_slot - 1}"""
+
+    def build_variants(self):
+        return [self]
 
 @define(kw_only=True)
 class ScalarBroadcastBinop(BinOp):
@@ -169,11 +243,24 @@ class ScalarBroadcastBinop(BinOp):
 
     def slot_name(self):
         return f"SLOT_{self.left_type.upper()}_{self.operation.upper()}_{self.right_type.upper()}_BROADCAST_CACHE"
-
     def to_template_args(self):
         args = super().to_template_args()
         args["cache_broadcast_array"] = True
         return args
+
+@define(kw_only=True)
+class FunctionOneOp(OneOp):
+ 
+    def __attrs_post_init__(self):
+        if self.opname == "":
+            self.opname = f"cmlq_{self.operation}_{self.left_type}"
+
+    @property
+    def with_broadcast_cache_variant(self):
+        return False
+
+    def slot_name(self):
+        return f"SLOT_{self.operation.upper()}_{self.left_type.upper()}"
 
 
 @define(kw_only=True)
@@ -631,7 +718,42 @@ def build_derivatives(flatten, cache_stats):
             loop_function="DOUBLE_multiply",
             impl_template="function_binop.mako",
         ),
+        FunctionOneOp(
+            operation="square",
+            left_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_square",
+            impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+            operation="square",
+            left_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_square",
+            impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+            operation="square",
+            left_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_square",
+            impl_template="function_oneop.mako",
+        ),
 
+        FunctionOneOp(
+            operation='sqrt',
+            left_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_sqrt",
+            impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+            operation="sqrt",
+            left_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_sqrt",
+            impl_template="function_oneop.mako",
+        )
     ]
 
 
@@ -723,32 +845,53 @@ def generate_case_guards(derivatives, lookup, out):
         print(
             "}",
         )
-def generate_func_case_guards(derivatives, lookup, out,funtion):
+def generate_func_case_guards(derivatives, lookup, out,function):
     global print
     print = functools.partial(print, file=out)
 
     binops = [
         d
         for d in derivatives
-        if isinstance(d, BinOp) and  isinstance(d, FunctionBinOp) and d.operation == funtion
+        if isinstance(d, BinOp) and  isinstance(d, FunctionBinOp) and d.operation == function
     ]
-    groups = defaultdict(list)
-    for binop in binops:
-        name = binop.operation
-        groups[name].append(binop)
-    print("\tPyObject *rhs = STACK_ELEMENT(-1);")
-    print("\tPyObject *lhs = STACK_ELEMENT(-2);")
-    for group_name, group in groups.items():
-        for derivative in group:
-            if not derivative.guard_template:
-                continue
-            template = lookup.get_template(derivative.guard_template)
-            template_args = derivative.to_template_args()
-            render_template(template, template_args, out)
-        print(
-            "\treport_missing_binop_case(instr, lhs, rhs);\n"
-        )
-
+    oneOps=[
+        d
+        for d in derivatives
+        if isinstance(d,OneOp) and isinstance(d,FunctionOneOp) and d.operation==function
+    ]
+    if len(binops)!=0:
+        groups = defaultdict(list)
+        for binop in binops:
+            name = binop.operation
+            groups[name].append(binop)
+        print("\tPyObject *rhs = STACK_ELEMENT(-1);")
+        print("\tPyObject *lhs = STACK_ELEMENT(-2);")
+        for group_name, group in groups.items():
+            for derivative in group:
+                if not derivative.guard_template:
+                    continue
+                template = lookup.get_template(derivative.guard_template)
+                template_args = derivative.to_template_args()
+                render_template(template, template_args, out)
+            print(
+                "\treport_missing_binop_case(instr, lhs, rhs);\n"
+            )
+    if len(oneOps)!=0:
+        ogroups=defaultdict(list)
+        for oneOp in oneOps:
+            name = oneOp.operation
+            ogroups[name].append(oneOp)
+        print("\tPyObject *lhs = STACK_ELEMENT(-1);")
+        for group_name, group in ogroups.items():
+            for derivative in group:
+                if not derivative.guard_template:
+                    continue
+                template = lookup.get_template(derivative.guard_template)
+                template_args = derivative.to_template_args()
+                render_template(template, template_args, out)
+            print(
+                "\t//missing func_one_Op\n"
+            )
 def generate_declarations(derivatives, out):
     global print
     print = functools.partial(print, file=out)
@@ -764,7 +907,13 @@ parser.add_argument(
     type=str,
     help="Generate  function "
 )
+parser.add_argument(
+    "--num",
+    type=int,
+    help="the args num"
+)
 group = parser.add_mutually_exclusive_group()
+
 
 group.add_argument(
     "-d",
@@ -772,7 +921,10 @@ group.add_argument(
     action="store_true",
     help="Generate slot definitions and forward declarations",
 )
-
+group.add_argument(
+    "--argsnum",
+    action="store_true",
+)
 group.add_argument(
     "-c",
     "--binop-case-guards",
