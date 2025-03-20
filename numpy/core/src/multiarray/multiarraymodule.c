@@ -5303,27 +5303,30 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                 // (e.g. no generalized ufunc etc)
                 if (strcmp(name, "minimum") == 0 && instr->op.arg == 2) {
 #include "cmlq_minimum.h"
-                }else if(strcmp(name,"maximum")==0 && instr->op.arg == 2){
+                }
+                else if(strcmp(name,"maximum")==0 && instr->op.arg == 2){
 #include "cmlq_maximum.h"
-                 }else if(strcmp(name,"add")==0 && instr->op.arg == 2){
+                }
+                else if(strcmp(name,"add")==0 && instr->op.arg == 2){
 #include "cmlq_add.h"
-                 }
-                  else if (strcmp(name, "subtract") == 0 && instr->op.arg == 2) {
+                }
+                else if (strcmp(name, "subtract") == 0 && instr->op.arg == 2) {
  #include "cmlq_subtract.h"
-                   }
-                  else if (strcmp(name, "multiply") == 0 && instr->op.arg == 2) {
+                }
+                else if (strcmp(name, "multiply") == 0 && instr->op.arg == 2) {
  #include "cmlq_multiply.h"
-                  }
-                  else if (strcmp(name,"sqare")==0){
+                }
+                else if (strcmp(name,"sqare")==0){
  #include "cmlq_square.h"
-                  }else if (strcmp(name,"sqrt")==0){
+                }
+                else if (strcmp(name,"sqrt")==0){
  #include "cmlq_sqrt.h"
-                 }
-                    else if (strcmp(name,"absolute")==0){
+                }
+                else if (strcmp(name,"absolute")==0){
   #include"cmlq_absolute.h"
-                   }else if(strcmp(name,"reciprocal")==0){
+                }else if(strcmp(name,"reciprocal")==0){
   #include"cmlq_reciprocal.h"         
-                    }
+                }
             break;
 }
     }
