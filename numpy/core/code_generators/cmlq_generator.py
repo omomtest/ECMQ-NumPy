@@ -718,6 +718,30 @@ def build_derivatives(flatten, cache_stats):
             loop_function="DOUBLE_multiply",
             impl_template="function_binop.mako",
         ),
+        # FunctionBinOp(
+        #     operation="matmul",
+        #     left_type="adouble",
+        #     right_type="adouble",
+        #     result_type="NPY_DOUBLE",
+        #     loop_function="DOUBLE_matmul",
+        #     impl_template="function_binop.mako",
+        # ),
+        # FunctionBinOp(
+        #     operation="matmul",
+        #     left_type="afloat",
+        #     right_type="afloat",
+        #     result_type="NPY_FLOAT",
+        #     loop_function="FLOAT_matmul",
+        #     impl_template="function_binop.mako",
+        # ),
+        # FunctionBinOp(
+        #     operation="matmul",
+        #     left_type="aint",
+        #     right_type="aint",
+        #     result_type="NPY_INT",
+        #     loop_function="INT_matmul",
+        #     impl_template="function_binop.mako",
+        # ),
         FunctionOneOp(
             operation="square",
             left_type="aint",
@@ -753,7 +777,49 @@ def build_derivatives(flatten, cache_stats):
             result_type="NPY_FLOAT",
             loop_function="FLOAT_sqrt",
             impl_template="function_oneop.mako",
-        )
+        ),
+         FunctionOneOp(
+             operation="absolute",
+             left_type="aint",
+             result_type="NPY_INT",
+             loop_function="INT_absolute",
+             impl_template="function_oneop.mako",
+         ),
+         FunctionOneOp(
+             operation="absolute",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_absolute",
+             impl_template="function_oneop.mako",
+         ),
+         FunctionOneOp(
+             operation="absolute",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_absolute",
+             impl_template="function_oneop.mako",
+         ),
+         FunctionOneOp(
+             operation="reciprocal",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_reciprocal",
+             impl_template="function_oneop.mako",
+         ),
+         FunctionOneOp(
+             operation="reciprocal",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_reciprocal",
+             impl_template="function_oneop.mako",
+         ),
+          FunctionOneOp(
+             operation="reciprocal",
+             left_type="aint",
+             result_type="NPY_INT",
+             loop_function="INT_reciprocal",
+             impl_template="function_oneop.mako",
+         )
     ]
 
 

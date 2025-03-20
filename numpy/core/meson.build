@@ -1084,6 +1084,23 @@ cmlq_sqrt=custom_target(
   input:'code_generators/cmlq_generator.py',
   command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','sqrt']
 )
+cmlq_absolute=custom_target(
+  'cmlq-absolute',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_absolute.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','absolute']
+)
+cmlq_reciprocal=custom_target(
+  'cmlq-reciprocal',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_reciprocal.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','reciprocal']
+)
+
 src_multiarray = multiarray_gen_headers + [
   'src/multiarray/abstractdtypes.c',
   'src/multiarray/alloc.c',
@@ -1136,6 +1153,8 @@ src_multiarray = multiarray_gen_headers + [
   cmlq_min,
   cmlq_max,
   cmlq_add,
+  cmlq_absolute,
+  cmlq_reciprocal,
   cmlq_subtract,
   cmlq_multiply,
   cmlq_square,

@@ -8,7 +8,7 @@ ${signature}
     <%include file="prepare_oneop_args.mako"/>
 
     %if locality_cache:
-    <%include file="locality_cache.mako"/>
+    <%include file="locality_cache_one.mako"/>
     %endif
 
     <%include file="array_one_op.mako" args="try_elide_temp=True"/>
