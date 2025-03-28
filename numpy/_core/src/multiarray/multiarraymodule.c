@@ -4996,6 +4996,9 @@ static struct PyModuleDef moduledef = {
             //                *handler = (void *)test_call;
             //                return 8;
             //            }
+             if (callable == NULL) {
+                return 0;
+            }
             if (Py_TYPE(callable) == &PyUFunc_Type) {
                 PyUFuncObject *ufunc = (PyUFuncObject *)callable;
                 const char *name = ufunc_get_name_cstr(ufunc);
