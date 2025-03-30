@@ -99,7 +99,7 @@
                         &PyArray_Type, result_descr, result_ndims,
                         result_shape, NULL, NULL,
                         0, NULL);
-                fixed_strides[${arity}] = PyArray_DESCR(result)->elsize;
+                fixed_strides[${arity}] = PyArray_ITEMSIZE(result);;
             %if try_elide_temp:
             } else {
                 // there was temp elision
