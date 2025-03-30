@@ -4798,7 +4798,7 @@ static struct PyModuleDef moduledef = {
         NULL
 };
 
-#define SLOT_START 40
+#define SLOT_START 100
  #define NEXT_SLOT() (__COUNTER__ + SLOT_START)
  
  #include "cmlq_decl.h"
