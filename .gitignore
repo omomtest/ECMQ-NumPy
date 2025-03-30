@@ -51,7 +51,7 @@ GTAGS
 *.bz2
 *.bzip2
 *.dmg
-*.gz
+
 *.iso
 *.jar
 *.rar
