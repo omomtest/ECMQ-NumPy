@@ -4835,7 +4835,7 @@ static struct PyModuleDef moduledef = {
      _Py_CODEUNIT *next_subindex_instr = instr - 1;
      for (int i = 0; i < instr->op.arg; i++) {
          if (is_constant_slice(next_subindex_instr)) {
-             next_subindex_instr -= 3;
+             next_subindex_instr -= (instr->op.arg + 1);
              continue;
          }
  
@@ -4882,20 +4882,22 @@ static struct PyModuleDef moduledef = {
  
  static void
  report_missing_binop_case(_Py_CODEUNIT *instr, PyObject *lhs, PyObject *rhs) {
-     // if (PyArray_CheckExact(lhs) || PyArray_CheckExact(rhs)) {
-     //     fprintf(stderr, "==== Missing Binop Case ====\n");
-     //     fprintf(stderr, "Cannot specialize: \n");
-     //     fprintf(stderr, "op: %d\n", instr->op.arg);
-     //     fprintf(stderr, "lhs: ");
-     //     PyObject_Print(lhs, stderr, 0);
-     //     fprintf(stderr, "\n");
-     //     fprintf(stderr, "rhs: ");
-     //     PyObject_Print(rhs, stderr, 0);
-     //     fprintf(stderr, "\n");
-     //     fprintf(stderr, "======================\n");
-     //     fprintf(stderr, "\n");
-     //     fprintf(stderr, "\n");
-     // }
+    //  if (PyArray_CheckExact(lhs) || PyArray_CheckExact(rhs)) {
+    //      fprintf(stderr,"\n");
+    //      fprintf(stderr,"\n");      
+    //      fprintf(stderr, "==== Missing Binop Case ====\n");
+    //      fprintf(stderr, "Cannot specialize: \n");
+    //      fprintf(stderr, "op: %d\n", instr->op.arg);
+    //      fprintf(stderr, "lhs: ");
+    //      PyObject_Print(lhs, stderr, 0);
+    //      fprintf(stderr, "\n");
+    //      fprintf(stderr, "rhs: ");
+    //      PyObject_Print(rhs, stderr, 0);
+    //      fprintf(stderr, "\n");
+    //      fprintf(stderr, "======================\n");
+         //fprintf(stderr, "\n");
+         //fprintf(stderr, "\n");
+    // }
  }
  
  static int
@@ -4913,7 +4915,6 @@ static struct PyModuleDef moduledef = {
  
              assert(PyArray_CheckExact(lhs) || !PyArray_Check(lhs));
              assert(PyArray_CheckExact(rhs) || !PyArray_Check(rhs));
- 
              switch (instr->op.arg) {
  #include "cmlq_binop_case_guards.h"
  
