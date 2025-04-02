@@ -4835,7 +4835,11 @@ static struct PyModuleDef moduledef = {
      _Py_CODEUNIT *next_subindex_instr = instr - 1;
      for (int i = 0; i < instr->op.arg; i++) {
          if (is_constant_slice(next_subindex_instr)) {
+<<<<<<< HEAD
              next_subindex_instr -= (instr->op.arg + 1);
+=======
+             next_subindex_instr -= (next_subindex_instr->op.arg + 1);
+>>>>>>> 23fcd3c64 (fix const)
              continue;
          }
  
