@@ -12,7 +12,7 @@
         PyArray_DESCR((PyArrayObject *)rhs)->type_num == ${right_numpy_name}
     %endif
        )
-    %if commutative:
+    %if commutative and not same_types:
     || (
     %if left_scalar_name is not UNDEFINED:
         Py${left_scalar_name}_CheckExact(rhs) &&

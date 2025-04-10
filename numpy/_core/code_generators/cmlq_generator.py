@@ -116,6 +116,7 @@ class BinOp:
 
     def to_template_args(self):
         args = attrs.asdict(self)
+        args["same_types"]=(self.left_type == self.right_type)
         if self.is_python_scalar(self.left_type):
             args["left_scalar_name"] = to_python_type(self.left_type)
         else:
@@ -198,6 +199,7 @@ class OneOp:
 
     def to_template_args(self):
         args = attrs.asdict(self)
+        
         if self.is_python_scalar(self.left_type):
             args["left_scalar_name"] = to_python_type(self.left_type)
         else:
