@@ -356,6 +356,22 @@ def build_derivatives(flatten, cache_stats):
             inplace=True,
         ),
         BinOp(
+            operation="add",
+            left_type="afloat",
+            right_type="slong",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_add",
+            inplace=True,
+        ),
+        BinOp(
+            operation="add",
+            left_type="adouble",
+            right_type="slong",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_add",
+            inplace=True,
+        ),
+        BinOp(
             operation="multiply",
             left_type="afloat",
             right_type="afloat",
@@ -618,6 +634,14 @@ def build_derivatives(flatten, cache_stats):
         ),
         FunctionBinOp(
             operation="minimum",
+            left_type="afloat",
+            right_type="slong",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_minimum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="minimum",
             left_type="adouble",
             right_type="adouble",
             result_type="NPY_DOUBLE",
@@ -636,6 +660,14 @@ def build_derivatives(flatten, cache_stats):
             operation="maximum",
             left_type="afloat",
             right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_maximum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="maximum",
+            left_type="afloat",
+            right_type="slong",
             result_type="NPY_FLOAT",
             loop_function="FLOAT_maximum",
             impl_template="function_binop.mako",
@@ -821,7 +853,63 @@ def build_derivatives(flatten, cache_stats):
              result_type="NPY_INT",
              loop_function="INT_reciprocal",
              impl_template="function_oneop.mako",
-         )
+         ),
+         FunctionOneOp(
+             operation="tanh",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_tanh",
+             impl_template="function_oneop.mako",
+         ),
+        #  FunctionOneOp(
+        #      operation="tanh",
+        #      left_type="sfloat",
+        #      result_type="NPY_FLOAT",
+        #      loop_function="FLOAT_tanh",
+        #      impl_template="function_oneop.mako",
+        #  ),
+         FunctionOneOp(
+             operation="tanh",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_tanh",
+             impl_template="function_oneop.mako",
+         ),
+        #  FunctionOneOp(
+        #      operation="tanh",
+        #      left_type="sdouble",
+        #      result_type="NPY_DOUBLE",
+        #      loop_function="DOUBLE_tanh",
+        #      impl_template="function_oneop.mako",
+        #  ),
+         FunctionOneOp(
+             operation="exp",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_exp",
+             impl_template="function_oneop.mako",
+         ),
+        #  FunctionOneOp(
+        #      operation="exp",
+        #      left_type="sfloat",
+        #      result_type="NPY_FLOAT",
+        #      loop_function="FLOAT_exp",
+        #      impl_template="function_oneop.mako",
+        #  ),
+         FunctionOneOp(
+             operation="exp",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_exp",
+             impl_template="function_oneop.mako",
+         ),
+        #  FunctionOneOp(
+        #      operation="exp",
+        #      left_type="sdouble",
+        #      result_type="NPY_DOUBLE",
+        #      loop_function="DOUBLE_exp",
+        #      impl_template="function_oneop.mako",
+        #  ),
     ]
 
 
@@ -878,7 +966,8 @@ def generate_implementations(derivatives, lookup, out):
         render_template(template, template_args, out)
 
 
-def generate_case_guards(derivatives, lookup, out):
+def generate_case_guards(derivatives, lookup, out,template_):
+    template_=template_+".mako"
     global print
     print = functools.partial(print, file=out)
 
@@ -903,7 +992,7 @@ def generate_case_guards(derivatives, lookup, out):
         for derivative in group:
             if not derivative.guard_template:
                 continue
-            template = lookup.get_template(derivative.guard_template)
+            template = lookup.get_template(template_)
             template_args = derivative.to_template_args()
             render_template(template, template_args, out)
         print(
@@ -913,10 +1002,11 @@ def generate_case_guards(derivatives, lookup, out):
         print(
             "}",
         )
-def generate_func_case_guards(derivatives, lookup, out,function):
+def generate_func_case_guards(derivatives, lookup, out,function,template_=None):
     global print
     print = functools.partial(print, file=out)
-
+    if template_ is not None:
+        template_ = template_+".mako"
     binops = [
         d
         for d in derivatives
@@ -932,13 +1022,13 @@ def generate_func_case_guards(derivatives, lookup, out,function):
         for binop in binops:
             name = binop.operation
             groups[name].append(binop)
-        print("\tPyObject *rhs = STACK_ELEMENT(-1);")
-        print("\tPyObject *lhs = STACK_ELEMENT(-2);")
+        # print("\tPyObject *rhs = STACK_ELEMENT(-1);")
+        # print("\tPyObject *lhs = STACK_ELEMENT(-2);")
         for group_name, group in groups.items():
             for derivative in group:
                 if not derivative.guard_template:
                     continue
-                template = lookup.get_template(derivative.guard_template)
+                template = lookup.get_template(template_)
                 template_args = derivative.to_template_args()
                 render_template(template, template_args, out)
             print(
@@ -949,7 +1039,7 @@ def generate_func_case_guards(derivatives, lookup, out,function):
         for oneOp in oneOps:
             name = oneOp.operation
             ogroups[name].append(oneOp)
-        print("\tPyObject *lhs = STACK_ELEMENT(-1);")
+        # print("\tPyObject *lhs = STACK_ELEMENT(-1);")
         for group_name, group in ogroups.items():
             for derivative in group:
                 if not derivative.guard_template:
@@ -979,6 +1069,11 @@ parser.add_argument(
     "--num",
     type=int,
     help="the args num"
+)
+parser.add_argument(
+    "--template",
+    type=str,
+    help="the case_guard_template"
 )
 group = parser.add_mutually_exclusive_group()
 
@@ -1032,10 +1127,10 @@ with smart_open(args.outfile) as out:
     derivatives = build_derivatives(args.flatten_derivatives, args.cache_stats)
 
     if args.binop_case_guards:
-        generate_case_guards(derivatives, lookup, out)
+        generate_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["template"])
     elif args.declarations:
         generate_declarations(derivatives, out)
     elif args.func :
-        generate_func_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["funcname"])
+        generate_func_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["funcname"],dict(args._get_kwargs())["template"])
     else:
         generate_implementations(derivatives, lookup, out)

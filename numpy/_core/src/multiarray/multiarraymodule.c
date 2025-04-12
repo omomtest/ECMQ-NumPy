@@ -4811,21 +4811,21 @@ static PyExternalSpecializer specializer_info;
 static void
 report_missing_binop_case(_Py_CODEUNIT *instr, PyObject *lhs, PyObject *rhs)
 {
-    //  if (PyArray_CheckExact(lhs) || PyArray_CheckExact(rhs)) {
-    //      fprintf(stderr,"\n");
-    //      fprintf(stderr,"\n");
-    //      fprintf(stderr, "==== Missing Binop Case ====\n");
-    //      fprintf(stderr, "Cannot specialize: \n");
-    //      fprintf(stderr, "op: %d\n", instr->op.arg);
-    //      fprintf(stderr, "lhs: ");
-    //      PyObject_Print(lhs, stderr, 0);
-    //      fprintf(stderr, "\n");
-    //      fprintf(stderr, "rhs: ");
-    //      PyObject_Print(rhs, stderr, 0);
-    //      fprintf(stderr, "\n");
-    //      fprintf(stderr, "======================\n");
-    // fprintf(stderr, "\n");
-    // fprintf(stderr, "\n");
+    // if (PyArray_CheckExact(lhs) || PyArray_CheckExact(rhs)) {
+    //     fprintf(stderr, "\n");
+    //     fprintf(stderr, "\n");
+    //     fprintf(stderr, "==== Missing Binop Case ====\n");
+    //     fprintf(stderr, "Cannot specialize: \n");
+    //     fprintf(stderr, "op: %d\n", instr->op.arg);
+    //     fprintf(stderr, "lhs: ");
+    //     PyObject_Print(lhs, stderr, 0);
+    //     fprintf(stderr, "\n");
+    //     fprintf(stderr, "rhs: ");
+    //     fprintf(stderr, "rhs type: %s\n", Py_TYPE(rhs)->tp_name);
+    //     fprintf(stderr, "\n");
+    //     fprintf(stderr, "======================\n");
+    //     fprintf(stderr, "\n");
+    //     fprintf(stderr, "\n");
     // }
 }
 
@@ -4843,13 +4843,34 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
 
             assert(PyArray_CheckExact(lhs) || !PyArray_Check(lhs));
             assert(PyArray_CheckExact(rhs) || !PyArray_Check(rhs));
-            switch (instr->op.arg) {
-#include "cmlq_binop_case_guards.h"
-
-                default: {
-                    report_missing_binop_case(instr, lhs, rhs);
+            if (PyArray_CheckExact(lhs) && PyArray_CheckExact(rhs)) {
+                switch (instr->op.arg) {
+#include "cmlq_binop_case_guards_a.h"
+                    default: {
+                        report_missing_binop_case(instr, lhs, rhs);
+                        return 0;
+                    }
                 }
             }
+            else if (PyArray_CheckExact(lhs)) {
+                switch (instr->op.arg) {
+#include "cmlq_binop_case_guards_l.h"
+                    default: {
+                        report_missing_binop_case(instr, lhs, rhs);
+                        return 0;
+                    }
+                }
+            }
+            else if (PyArray_CheckExact(rhs)) {
+                switch (instr->op.arg) {
+#include "cmlq_binop_case_guards_r.h"
+                    default: {
+                        report_missing_binop_case(instr, lhs, rhs);
+                        return 0;
+                    }
+                }
+            }
+
             break;
         }
         case BINARY_SUBSCR: {
@@ -4967,8 +4988,12 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                 // (e.g. no generalized ufunc etc)
                 switch (instr->op.arg) {
                     case 1: {
+                        PyObject *lhs = STACK_ELEMENT(-1);
+                        if (!PyArray_CheckExact(lhs)) {
+                            return 0;
+                        }
                         const char *name = ufunc_get_name_cstr(ufunc);
-                        if (strcmp(name, "sqare") == 0) {
+                        if (strcmp(name, "square") == 0) {
 #include "cmlq_square.h"
                         }
                         else if (strcmp(name, "sqrt") == 0) {
@@ -4977,28 +5002,81 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                         else if (strcmp(name, "absolute") == 0) {
 #include "cmlq_absolute.h"
                         }
-                        else if (strcmp(name, "reciprocal") == 0) {
-#include "cmlq_reciprocal.h"
-                        }
+                        // else if (strcmp(name, "reciprocal") == 0) {
+                        // #include "cmlq_reciprocal.h"
+                        //                         }
+                        //                         else if (strcmp(name,
+                        //                         "exp") == 0) {
+                        // #include "cmlq_exp.h"
+                        //                         }
+                        //                         else if (strcmp(name,
+                        //                         "tanh") == 0) {
+                        // #include "cmlq_tanh.h"
+                        //                         }
                         break;
                     }
                     case 2: {
-                        const char *name = ufunc_get_name_cstr(ufunc);
-                        if (strcmp(name, "minimum") == 0) {
-#include "cmlq_minimum.h"
+                        PyObject *rhs = STACK_ELEMENT(-1);
+                        PyObject *lhs = STACK_ELEMENT(-2);
+                        if (PyArray_CheckExact(lhs) &&
+                            PyArray_CheckExact(rhs)) {
+                            const char *name = ufunc_get_name_cstr(ufunc);
+                            if (strcmp(name, "minimum") == 0) {
+#include "cmlq_minimum_a.h"
+                            }
+                            else if (strcmp(name, "maximum") == 0) {
+#include "cmlq_maximum_a.h"
+                            }
+                            else if (strcmp(name, "add") == 0) {
+#include "cmlq_add_a.h"
+                            }
+                            else if (strcmp(name, "subtract") == 0) {
+#include "cmlq_subtract_a.h"
+                            }
+                            else if (strcmp(name, "multiply") == 0) {
+#include "cmlq_multiply_a.h"
+                            }
+                            return 0;
                         }
-                        else if (strcmp(name, "maximum") == 0) {
-#include "cmlq_maximum.h"
+                        else if (PyArray_CheckExact(lhs)) {
+                            const char *name = ufunc_get_name_cstr(ufunc);
+                            if (strcmp(name, "minimum") == 0) {
+#include "cmlq_minimum_l.h"
+                            }
+                            else if (strcmp(name, "maximum") == 0) {
+#include "cmlq_maximum_l.h"
+                            }
+                            else if (strcmp(name, "add") == 0) {
+#include "cmlq_add_l.h"
+                            }
+                            else if (strcmp(name, "subtract") == 0) {
+#include "cmlq_subtract_l.h"
+                            }
+                            else if (strcmp(name, "multiply") == 0) {
+#include "cmlq_multiply_l.h"
+                            }
+                            return 0;
                         }
-                        else if (strcmp(name, "add") == 0) {
-#include "cmlq_add.h"
+                        else if (PyArray_CheckExact(rhs)) {
+                            const char *name = ufunc_get_name_cstr(ufunc);
+                            if (strcmp(name, "minimum") == 0) {
+#include "cmlq_minimum_r.h"
+                            }
+                            else if (strcmp(name, "maximum") == 0) {
+#include "cmlq_maximum_r.h"
+                            }
+                            else if (strcmp(name, "add") == 0) {
+#include "cmlq_add_r.h"
+                            }
+                            else if (strcmp(name, "subtract") == 0) {
+#include "cmlq_subtract_r.h"
+                            }
+                            else if (strcmp(name, "multiply") == 0) {
+#include "cmlq_multiply_r.h"
+                            }
+                            return 0;
                         }
-                        else if (strcmp(name, "subtract") == 0) {
-#include "cmlq_subtract.h"
-                        }
-                        else if (strcmp(name, "multiply") == 0) {
-#include "cmlq_multiply.h"
-                        }
+
                         break;
                     }
                     default: {
@@ -5140,14 +5218,14 @@ PyInit__multiarray_umath(void)
     }
 
 #if defined(MS_WIN64) && defined(__GNUC__)
-    PyErr_WarnEx(
-            PyExc_Warning,
-            "Numpy built with MINGW-W64 on Windows 64 bits is experimental, "
-            "and only available for \n"
-            "testing. You are advised not to use it for production. \n\n"
-            "CRASHES ARE TO BE EXPECTED - PLEASE REPORT THEM TO NUMPY "
-            "DEVELOPERS",
-            1);
+    PyErr_WarnEx(PyExc_Warning,
+                 "Numpy built with MINGW-W64 on Windows 64 bits is "
+                 "experimental, "
+                 "and only available for \n"
+                 "testing. You are advised not to use it for production. \n\n"
+                 "CRASHES ARE TO BE EXPECTED - PLEASE REPORT THEM TO NUMPY "
+                 "DEVELOPERS",
+                 1);
 #endif
 
     /* Initialize access to the PyDateTime API */
@@ -5331,7 +5409,8 @@ PyInit__multiarray_umath(void)
                          (PyObject *)&NpyBusDayCalendar_Type);
     set_flaginfo(d);
 
-    /* Finalize scalar types and expose them via namespace or typeinfo dict */
+    /* Finalize scalar types and expose them via namespace or typeinfo dict
+     */
     if (set_typeinfo(d) != 0) {
         goto err;
     }

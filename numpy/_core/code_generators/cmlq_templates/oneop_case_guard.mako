@@ -2,7 +2,6 @@
     %if left_scalar_name is not UNDEFINED:
         Py${left_scalar_name}_CheckExact(lhs) 
     %else:
-        PyArray_CheckExact(lhs) &&
         PyArray_DESCR((PyArrayObject *)lhs)->type_num == ${left_numpy_name} 
     %endif
        )
