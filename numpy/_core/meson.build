@@ -1168,6 +1168,14 @@ cmlq_max_r = custom_target(
   input: 'code_generators/cmlq_generator.py',
   command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','maximum','--template','binop_case_guards_r'],
 )
+cmlq_matmul_a = custom_target(
+  'cmlq-matmul-r',
+  build_always_stale: true,
+  build_by_default: true,
+  output: 'cmlq_matmul_a.h',
+  input: 'code_generators/cmlq_generator.py',
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','matmul','--template','binop_case_guards_a'],
+)
 cmlq_add_a=custom_target(
   'cmlq-add-a',
   build_always_stale:true,
@@ -1288,6 +1296,38 @@ cmlq_exp=custom_target(
   input:'code_generators/cmlq_generator.py',
   command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','exp']
 )
+cmlq_logical_and_a = custom_target(
+  'cmlq-logicaland-a',
+  build_always_stale: true,
+  build_by_default: true,
+  output: 'cmlq_logical_and_a.h',
+  input: 'code_generators/cmlq_generator.py',
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','logical_and','--template','binop_case_guards_a'],
+)
+cmlq_logical_not_a = custom_target(
+  'cmlq-logicalnot-a',
+  build_always_stale: true,
+  build_by_default: true,
+  output: 'cmlq_logical_not_a.h',
+  input: 'code_generators/cmlq_generator.py',
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','logical_not','--template','binop_case_guards_a'],
+)
+cmlq_less_equal_a = custom_target(
+  'cmlq-lessequal-a',
+  build_always_stale: true,
+  build_by_default: true,
+  output: 'cmlq_less_equal_a.h',
+  input: 'code_generators/cmlq_generator.py',
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','less_equal','--template','binop_case_guards_a'],
+)
+cmlq_arctan2_a = custom_target(
+  'cmlq-arctan2-a',
+  build_always_stale: true,
+  build_by_default: true,
+  output: 'cmlq_arctan2_a.h',
+  input: 'code_generators/cmlq_generator.py',
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','arctan2','--template','binop_case_guards_a'],
+)
 src_multiarray = multiarray_gen_headers + [
   'src/multiarray/abstractdtypes.c',
   'src/multiarray/alloc.c',
@@ -1353,6 +1393,10 @@ src_multiarray = multiarray_gen_headers + [
   cmlq_add_a,
   cmlq_add_l,
   cmlq_add_r,
+  cmlq_logical_and_a,
+  cmlq_logical_not_a,
+  cmlq_arctan2_a,
+  cmlq_less_equal_a,
   cmlq_absolute,
   cmlq_reciprocal,
   cmlq_subtract_a,
@@ -1361,6 +1405,7 @@ src_multiarray = multiarray_gen_headers + [
   cmlq_multiply_a,
   cmlq_multiply_l,
   cmlq_multiply_r,
+  cmlq_matmul_a,
   cmlq_square,
   cmlq_sqrt,
   cmlq_exp,
