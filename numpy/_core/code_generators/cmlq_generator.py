@@ -46,6 +46,8 @@ def to_numpy_type(type):
             name = "NPY_LONG"
         case "float16":
             name = "NPY_HALF"
+        case "bool":
+            name="NPY_BOOL"
         case _:
             raise Exception(f"Unknown numpy type for {type_name}")
     return name
@@ -585,6 +587,15 @@ def build_derivatives(flatten, cache_stats):
             impl_template="array_power.mako",
             commutative=False,
         ),
+        # BinOp(
+        #     operation="matmul",
+        #     left_type="adouble",
+        #     right_type="adouble",
+        #     result_type="NPY_DOUBLE",
+        #     loop_function="DOUBLE_matmul",
+        #     commutative=True,
+        #     impl_template="matmul_op.mako"
+        # ),
         ArrayPowerOp(
             operation="power",
             left_type="adouble",
@@ -666,6 +677,14 @@ def build_derivatives(flatten, cache_stats):
         ),
         FunctionBinOp(
             operation="maximum",
+            left_type="adouble",
+            right_type="slong",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_maximum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="maximum",
             left_type="afloat",
             right_type="slong",
             result_type="NPY_FLOAT",
@@ -678,6 +697,38 @@ def build_derivatives(flatten, cache_stats):
             right_type="adouble",
             result_type="NPY_DOUBLE",
             loop_function="DOUBLE_maximum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="logical_not",
+            left_type="abool",
+            right_type="abool",
+            result_type="NPY_BOOL",
+            loop_function="BOOL_logical_not",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="less_equal",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_less_equal",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="logical_and",
+            left_type="abool",
+            right_type="abool",
+            result_type="NPY_BOOL",
+            loop_function="BOOL_logical_and",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="arctan2",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_logical_and",
             impl_template="function_binop.mako",
         ),
         FunctionBinOp(
@@ -758,7 +809,7 @@ def build_derivatives(flatten, cache_stats):
         #     right_type="adouble",
         #     result_type="NPY_DOUBLE",
         #     loop_function="DOUBLE_matmul",
-        #     impl_template="function_binop.mako",
+        #     impl_template="matmul.mako",
         # ),
         # FunctionBinOp(
         #     operation="matmul",
@@ -982,7 +1033,10 @@ def generate_case_guards(derivatives, lookup, out,template_):
         groups[name].append(binop)
 
     for group_name, group in groups.items():
-        case_name = f"NB_{group_name.upper()}"
+        if group_name =="matmul":
+            case_name="NB_MATRIX_MULTIPLY"
+        else :
+            case_name = f"NB_{group_name.upper()}"
         print(
             f"case {case_name}:",
         )

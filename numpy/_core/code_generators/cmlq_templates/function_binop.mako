@@ -8,7 +8,7 @@ ${signature}
 
     <%include file="prepare_binary_args.mako"/>
 
-    PyObject *callable = (*stack_pointer_ptr)[-3];
+    PyObject *callable = (*stack_pointer_ptr)[-4];
     PyUFuncObject *ufunc = (PyUFuncObject *)callable;
 
     if (NPY_UNLIKELY(!ufunc->specializable)) {

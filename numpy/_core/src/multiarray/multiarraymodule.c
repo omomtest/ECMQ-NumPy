@@ -73,6 +73,7 @@ NPY_NO_EXPORT int NPY_NUMUSERTYPES = 0;
 #include "get_attr_string.h"
 #include "item_selection.h"
 #include "lowlevel_strided_loops.h"
+#include "matmul.h"
 #include "mem_overlap.h"
 #include "methods.h"
 #include "nditer_impl.h"
@@ -4969,23 +4970,25 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
 
         case CALL: {
             // PyCFunction_Type
-            PyObject *callable = STACK_ELEMENT(-(1 + instr->op.arg));
+            PyObject *callable = STACK_ELEMENT(-(2 + instr->op.arg));
+
             //            if (Py_TYPE(callable) == &PyUFunc_Type) {
             //                *unused_args_bitmap |= (1 << (instr->op.arg));
             //                *unused_args_bitmap |= (1 << (instr->op.arg +
             //                1)); *handler = (void *)test_call; return 8;
             //            }
-            if (callable == NULL) {
-                return 0;
-            }
+
+            // fprintf(stderr, "instr->arg=%d,callabel:%p\n", instr->op.arg,
+            //         callable);
+
             if (Py_TYPE(callable) == &PyUFunc_Type) {
                 PyUFuncObject *ufunc = (PyUFuncObject *)callable;
-
-                // TODO: this is inefficient and might even be wrong in some
-                // cases, but works for now. We should rather check for
-                // equivalence with the objects created in __umath_generated.c.
-                // From these objects we also know exactly their properties
-                // (e.g. no generalized ufunc etc)
+                // TODO: this is inefficient and might even be wrong in
+                // some cases, but works for now. We should rather
+                // check for equivalence with the objects created in
+                // __umath_generated.c. From these objects we also know
+                // exactly their properties (e.g. no generalized ufunc
+                // etc)
                 switch (instr->op.arg) {
                     case 1: {
                         PyObject *lhs = STACK_ELEMENT(-1);
@@ -5024,56 +5027,99 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                             if (strcmp(name, "minimum") == 0) {
 #include "cmlq_minimum_a.h"
                             }
-                            else if (strcmp(name, "maximum") == 0) {
-#include "cmlq_maximum_a.h"
+                            else if (strcmp(name, "less_equal") == 0) {
+#include "cmlq_less_equal_a.h"
                             }
-                            else if (strcmp(name, "add") == 0) {
-#include "cmlq_add_a.h"
+                            else if (strcmp(name, "logical_and") == 0) {
+#include "cmlq_logical_and_a.h"
                             }
-                            else if (strcmp(name, "subtract") == 0) {
-#include "cmlq_subtract_a.h"
+                            else if (strcmp(name, "logical_not") == 0) {
+#include "cmlq_logical_not_a.h"
                             }
-                            else if (strcmp(name, "multiply") == 0) {
-#include "cmlq_multiply_a.h"
+                            else if (strcmp(name, "arctan2") == 0) {
+#include "cmlq_arctan2_a.h"
                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "maximum") == 0) {
+                            // #include "cmlq_maximum_a.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name, "add")
+                            //                             == 0) {
+                            // #include "cmlq_add_a.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "subtract") == 0) {
+                            // #include "cmlq_subtract_a.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "multiply") == 0) {
+                            // #include "cmlq_multiply_a.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "matmul") == 0) {
+
+                            // #include "cmlq_matmul_a.h"
+                            //                             }
                             return 0;
                         }
                         else if (PyArray_CheckExact(lhs)) {
                             const char *name = ufunc_get_name_cstr(ufunc);
-                            if (strcmp(name, "minimum") == 0) {
-#include "cmlq_minimum_l.h"
-                            }
-                            else if (strcmp(name, "maximum") == 0) {
+                            //                             if (strcmp(name,
+                            //                             "minimum") == 0) {
+                            // #include "cmlq_minimum_l.h"
+                            //                             }
+                            if (strcmp(name, "maximum") == 0) {
 #include "cmlq_maximum_l.h"
                             }
-                            else if (strcmp(name, "add") == 0) {
-#include "cmlq_add_l.h"
-                            }
-                            else if (strcmp(name, "subtract") == 0) {
-#include "cmlq_subtract_l.h"
-                            }
-                            else if (strcmp(name, "multiply") == 0) {
-#include "cmlq_multiply_l.h"
-                            }
+                            //                             else if
+                            //                             (strcmp(name, "add")
+                            //                             == 0) {
+                            // #include "cmlq_add_l.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "subtract") == 0) {
+                            // #include "cmlq_subtract_l.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "multiply") == 0) {
+                            // #include "cmlq_multiply_l.h"
+                            //                             }
                             return 0;
                         }
                         else if (PyArray_CheckExact(rhs)) {
-                            const char *name = ufunc_get_name_cstr(ufunc);
-                            if (strcmp(name, "minimum") == 0) {
-#include "cmlq_minimum_r.h"
-                            }
-                            else if (strcmp(name, "maximum") == 0) {
-#include "cmlq_maximum_r.h"
-                            }
-                            else if (strcmp(name, "add") == 0) {
-#include "cmlq_add_r.h"
-                            }
-                            else if (strcmp(name, "subtract") == 0) {
-#include "cmlq_subtract_r.h"
-                            }
-                            else if (strcmp(name, "multiply") == 0) {
-#include "cmlq_multiply_r.h"
-                            }
+                            //                             const char *name =
+                            //                             ufunc_get_name_cstr(ufunc);
+                            //                             if (strcmp(name,
+                            //                             "minimum") == 0) {
+                            // #include "cmlq_minimum_r.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "maximum") == 0) {
+                            // #include "cmlq_maximum_r.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name, "add")
+                            //                             == 0) {
+                            // #include "cmlq_add_r.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "subtract") == 0) {
+                            // #include "cmlq_subtract_r.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "multiply") == 0) {
+                            // #include "cmlq_multiply_r.h"
+                            //                             }
                             return 0;
                         }
 

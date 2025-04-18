@@ -8,7 +8,7 @@ ${signature}
 
     <%include file="prepare_oneop_args.mako"/>
 
-    PyObject *callable = (*stack_pointer_ptr)[-2];
+    PyObject *callable = (*stack_pointer_ptr)[-3];
     PyUFuncObject *ufunc = (PyUFuncObject *)callable;
 
     if (NPY_UNLIKELY(!ufunc->specializable)) {
