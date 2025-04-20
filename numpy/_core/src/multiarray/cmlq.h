@@ -32,7 +32,10 @@ typedef struct _CMLQIteratorPathCache {
 } CMLQIteratorPathCache;
 
 typedef struct _CMLQTrivialPathCache {
-    npy_intp fixed_strides[3];
+    union {
+        npy_intp steps[9];
+        npy_intp fixed_strides[3];
+    };
     npy_intp count;
 } CMLQTrivialPathCache;
 
@@ -40,7 +43,6 @@ typedef union _CMLQCacheData {
     CMLQTrivialPathCache trivial;
     CMLQIteratorPathCache iterator;
 } CMLQCacheData;
-
 
 typedef struct _CMLQCacheStatsElem {
     char *opname;
@@ -69,7 +71,6 @@ typedef struct _CMLQCacheStatsElem {
     uint64_t iterator_cache_init;
     enum CMLQCacheState last_state;
 } CMLQCacheStatsElem;
-
 
 typedef struct _CMLQLocalityCacheElem {
     enum CMLQCacheState state;

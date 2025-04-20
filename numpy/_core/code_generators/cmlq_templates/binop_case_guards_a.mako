@@ -32,7 +32,6 @@
         #ifdef CMLQ_STATS
         locality_cache[next_result_cache_index].stats.instr_ptr = instr;
         #endif
-
         %if with_broadcast_cache_variant:
 
             PyArrayObject *op = NULL;
@@ -60,29 +59,6 @@
                 }
                 %endif
             %endif
-
-            %if right_scalar_name is not UNDEFINED and left_scalar_name is UNDEFINED:
-
-                %if right_promotion is not None:
-                descr = PyArray_DescrFromType(${right_promotion});
-                %endif
-
-                cache_possible = Py${right_scalar_name}_CheckExact(rhs) && specializer_info.IsOperandConstant(instr, *stack_pointer, 0);
-                op = rhs;
-
-                %if commutative:
-                // try the commutative case
-                if (!cache_possible) {
-                    %if left_promotion is not None:
-                    descr = PyArray_DescrFromType(${left_promotion});
-                    %endif
-
-                    cache_possible = Py${right_scalar_name}_CheckExact(lhs) && specializer_info.IsOperandConstant(instr, *stack_pointer, 1);
-                    op = lhs;
-                }
-                %endif
-            %endif
-
             if (cache_possible) {
                 // precompute the broadcast array
                 locality_cache[next_result_cache_index].state = BROADCAST;

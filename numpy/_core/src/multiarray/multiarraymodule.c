@@ -4840,11 +4840,14 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
         // overloads
         case BINARY_OP: {
             PyObject *rhs = STACK_ELEMENT(-1);
-            PyObject *lhs = STACK_ELEMENT(-2);
-
+            PyObject *lhs = STACK_ELEMENT(-2);  // 4
             assert(PyArray_CheckExact(lhs) || !PyArray_Check(lhs));
             assert(PyArray_CheckExact(rhs) || !PyArray_Check(rhs));
             if (PyArray_CheckExact(lhs) && PyArray_CheckExact(rhs)) {
+                // fprintf(stderr, "111\n");
+                // fprintf(stderr, "lhs:%d,rhs:%d\n",
+                // PyArray_NDIM((PyArrayObject *)lhs),
+                // PyArray_NDIM((PyArrayObject *)lhs));
                 switch (instr->op.arg) {
 #include "cmlq_binop_case_guards_a.h"
                     default: {

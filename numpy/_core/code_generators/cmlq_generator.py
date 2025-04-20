@@ -119,6 +119,7 @@ class BinOp:
     def to_template_args(self):
         args = attrs.asdict(self)
         args["same_types"]=(self.left_type == self.right_type)
+        args["res_c_type"]=self.result_type[4:]
         if self.is_python_scalar(self.left_type):
             args["left_scalar_name"] = to_python_type(self.left_type)
         else:
@@ -587,15 +588,15 @@ def build_derivatives(flatten, cache_stats):
             impl_template="array_power.mako",
             commutative=False,
         ),
-        # BinOp(
-        #     operation="matmul",
-        #     left_type="adouble",
-        #     right_type="adouble",
-        #     result_type="NPY_DOUBLE",
-        #     loop_function="DOUBLE_matmul",
-        #     commutative=True,
-        #     impl_template="matmul_op.mako"
-        # ),
+        BinOp(
+            operation="matmul",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_matmul",
+            commutative=True,
+            impl_template="matmul_op.mako"
+        ),
         ArrayPowerOp(
             operation="power",
             left_type="adouble",
@@ -1043,6 +1044,11 @@ def generate_case_guards(derivatives, lookup, out,template_):
         print(
             "{",
         )
+        if case_name=="NB_MATRIX_MULTIPLY":
+            print(
+                "if(PyArray_NDIM((PyArrayObject *)lhs)>2||PyArray_NDIM((PyArrayObject *)rhs)>2){" \
+                "return 0 ;}"
+            )
         for derivative in group:
             if not derivative.guard_template:
                 continue
