@@ -46,6 +46,15 @@ ${signature}
     }else if (nd_rhs==1){
         path=4;
     }
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+#define CACHE_MATCH_TRIVIAL() ${"\\"}
+    elem->state == TRIVIAL
+#define CACHE_MATCH_ITERATOR() ${"\\"}
+    elem->state == ITERATOR
+
 switch(path)
 {
 case 1:{
@@ -63,17 +72,7 @@ case 1:{
         }
         npy_intp dims[4] = {1, m, n, p};
         %if locality_cache:
-        #define RESULT_CACHE_VALID(elem) \
-            ((PyObject *)(elem->result))->ob_refcnt == 1 && \
-            PyArray_NDIM(elem->result) == result_ndims && \
-            PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
 
-        #define CACHE_MATCH_TRIVIAL() ${"\\"}
-            elem->state == TRIVIAL
-
-        #define CACHE_MATCH_ITERATOR() ${"\\"}
-            elem->state == ITERATOR
-        
         if (CACHE_MATCH_TRIVIAL()) {
 
             %if not inplace:
@@ -144,9 +143,19 @@ case 1:{
         ${loop_function}(data, dims, steps, auxdata);
         NPY_END_THREADS;
 
+        %if locality_cache_size_limit is not UNDEFINED:
+        if (PyArray_NBYTES(result) >= ${locality_cache_size_limit}) {
+            <%count_stat("result_too_big")%>
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+        %endif
+
+
         // 更新缓存
         if (elem->state != DISABLED && result != lhs) {
             if (elem->miss_counter >= 0) {
+
                 elem->result = result;
                 ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
                 Py_INCREF(elem->result);
@@ -154,6 +163,7 @@ case 1:{
                 for(int i =0;i<9;i++){
                     elem->trivial.steps[i]=steps[i];
                 }
+                
                 elem->state=TRIVIAL;
             }
             else {
@@ -174,16 +184,6 @@ case 2:{
     npy_intp result_shape[1] = {1}; // 结果是一个标量
     
     %if locality_cache:
-    #define RESULT_CACHE_VALID(elem) \
-        ((PyObject *)(elem->result))->ob_refcnt == 1 && \
-        PyArray_NDIM(elem->result) == result_ndims && \
-        PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
-
-    #define CACHE_MATCH_TRIVIAL() ${"\\"}
-        elem->state == TRIVIAL
-
-    #define CACHE_MATCH_ITERATOR() ${"\\"}
-        elem->state == ITERATOR
     if (CACHE_MATCH_TRIVIAL()) {
         
         %if not inplace:
@@ -195,8 +195,12 @@ case 2:{
             result = elem->result;
             %endif
             Py_INCREF(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(shape_lhs[0]);
             ${res_c_type}_dot(PyArray_BYTES(lhs),elem->trivial.fixed_strides[0], PyArray_BYTES(rhs),
-             elem->trivial.fixed_strides[1], PyArray_BYTES(result),shape_lhs[0],NULL);
+            elem->trivial.fixed_strides[1], PyArray_BYTES(result),shape_lhs[0],NULL);
+            NPY_END_THREADS;
             //DOUBLE_dot(ip1, is1_n, ip2, is2_n, op, dn, NULL);
             goto success;
         %if not inplace:
@@ -229,10 +233,21 @@ case 2:{
     }else{
         Py_INCREF(result);
     }
-
+    NPY_BEGIN_THREADS_DEF;
+    NPY_BEGIN_THREADS_THRESHOLDED(shape_lhs[0]);
     ${res_c_type}_dot(PyArray_BYTES(lhs),PyArray_STRIDES(lhs)[0], PyArray_BYTES(rhs),
              PyArray_STRIDES(rhs)[0], PyArray_BYTES(result),shape_lhs[0],NULL);
+    NPY_END_THREADS;
     //DOUBLE_dot(ip1, is1_n, ip2, is2_n, op, dn, NULL);
+
+    %if locality_cache_size_limit is not UNDEFINED:
+        if (PyArray_NBYTES(result) >= ${locality_cache_size_limit}) {
+            <%count_stat("result_too_big")%>
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+    %endif
+
     //更新缓存
     if (elem->state != DISABLED && result != lhs) {
         if (elem->miss_counter >= 0) {
@@ -260,16 +275,6 @@ case 3:{
         npy_intp result_shape[1] = {p};
         npy_intp dims[4] = {1, 1, n, p};
         %if locality_cache:
-        #define RESULT_CACHE_VALID(elem) \
-            ((PyObject *)(elem->result))->ob_refcnt == 1 && \
-            PyArray_NDIM(elem->result) == result_ndims && \
-            PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
-
-        #define CACHE_MATCH_TRIVIAL() ${"\\"}
-            elem->state == TRIVIAL
-
-        #define CACHE_MATCH_ITERATOR() ${"\\"}
-            elem->state == ITERATOR
     
         if (CACHE_MATCH_TRIVIAL()) {
 
@@ -324,7 +329,6 @@ case 3:{
         }else{
             Py_INCREF(result);
         }
-
         npy_intp steps[9] = {0,
                              0,
                              0,
@@ -373,16 +377,6 @@ case 4:{
 
         npy_intp dims[4] = {1, m, n, 1};
         %if locality_cache:
-        #define RESULT_CACHE_VALID(elem) \
-            ((PyObject *)(elem->result))->ob_refcnt == 1 && \
-            PyArray_NDIM(elem->result) == result_ndims && \
-            PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
-
-        #define CACHE_MATCH_TRIVIAL() ${"\\"}
-            elem->state == TRIVIAL
-
-        #define CACHE_MATCH_ITERATOR() ${"\\"}
-            elem->state == ITERATOR
         
         if (CACHE_MATCH_TRIVIAL()) {
 
@@ -437,7 +431,6 @@ case 4:{
         }else{
             Py_INCREF(result);
         }
-
         npy_intp steps[9] = {0,
                              0,
                              0,
@@ -454,6 +447,14 @@ case 4:{
         NPY_BEGIN_THREADS_THRESHOLDED(dims[1]*dims[2] * dims[3]);
         ${loop_function}(data, dims, steps, auxdata);
         NPY_END_THREADS;
+
+        %if locality_cache_size_limit is not UNDEFINED:
+        if (PyArray_NBYTES(result) >= ${locality_cache_size_limit}) {
+            <%count_stat("result_too_big")%>
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+        %endif
 
         // 更新缓存
         if (elem->state != DISABLED && result != lhs) {
