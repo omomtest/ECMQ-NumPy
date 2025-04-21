@@ -91,7 +91,7 @@ class BinOp:
     locality_cache: bool = True
 
     # disabled, we adaptively free the cache instead
-    # locality_cache_size_limit: int = os.sysconf('SC_PAGE_SIZE')
+    locality_cache_size_limit: int = os.sysconf('SC_PAGE_SIZE')
 
     # maintain cache statistics and print after this many instruction occurences
     locality_stats: bool = False
