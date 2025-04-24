@@ -4841,13 +4841,9 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
         case BINARY_OP: {
             PyObject *rhs = STACK_ELEMENT(-1);
             PyObject *lhs = STACK_ELEMENT(-2);  // 4
-            assert(PyArray_CheckExact(lhs) || !PyArray_Check(lhs));
-            assert(PyArray_CheckExact(rhs) || !PyArray_Check(rhs));
+            // assert(PyArray_CheckExact(lhs) || !PyArray_Check(lhs));
+            // assert(PyArray_CheckExact(rhs) || !PyArray_Check(rhs));
             if (PyArray_CheckExact(lhs) && PyArray_CheckExact(rhs)) {
-                // fprintf(stderr, "111\n");
-                // fprintf(stderr, "lhs:%d,rhs:%d\n",
-                // PyArray_NDIM((PyArrayObject *)lhs),
-                // PyArray_NDIM((PyArrayObject *)lhs));
                 switch (instr->op.arg) {
 #include "cmlq_binop_case_guards_a.h"
                     default: {
@@ -4874,7 +4870,9 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                     }
                 }
             }
-
+            else {
+                return 0;
+            }
             break;
         }
         case BINARY_SUBSCR: {
@@ -4999,6 +4997,7 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                             return 0;
                         }
                         const char *name = ufunc_get_name_cstr(ufunc);
+                        // fprintf(stderr, "nameoneop:%s\n", name);
                         if (strcmp(name, "square") == 0) {
 #include "cmlq_square.h"
                         }
@@ -5027,6 +5026,7 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                         if (PyArray_CheckExact(lhs) &&
                             PyArray_CheckExact(rhs)) {
                             const char *name = ufunc_get_name_cstr(ufunc);
+                            // fprintf(stderr, "nameaa:%s\n", name);
                             if (strcmp(name, "minimum") == 0) {
 #include "cmlq_minimum_a.h"
                             }
@@ -5072,6 +5072,7 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                         }
                         else if (PyArray_CheckExact(lhs)) {
                             const char *name = ufunc_get_name_cstr(ufunc);
+                            // fprintf(stderr, "namela:%s\n", name);
                             //                             if (strcmp(name,
                             //                             "minimum") == 0) {
                             // #include "cmlq_minimum_l.h"
@@ -5097,6 +5098,8 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                             return 0;
                         }
                         else if (PyArray_CheckExact(rhs)) {
+                            // const char *name = ufunc_get_name_cstr(ufunc);
+                            // fprintf(stderr, "namear:%s\n", name);
                             //                             const char *name =
                             //                             ufunc_get_name_cstr(ufunc);
                             //                             if (strcmp(name,
@@ -5129,6 +5132,9 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                         break;
                     }
                     default: {
+                        // const char *name = ufunc_get_name_cstr(ufunc);
+                        // fprintf(stderr, "name%dop:%s\n", instr->op.arg,
+                        // name);
                         return 0;
                     }
                 }

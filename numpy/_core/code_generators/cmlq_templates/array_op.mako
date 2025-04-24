@@ -45,6 +45,9 @@
 
     %if arity == 2:
     fixed_strides[1] = 0;
+    %if inplace:
+        fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+    %endif
     %endif
 
     %elif right_numpy_name is not UNDEFINED:
@@ -172,6 +175,22 @@
 
         %if inplace:
         // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (elem->miss_counter >= 0) {
+                elem->result = NULL;
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+                <%count_stat("trivial_cache_init")%>
+            } else {
+                // warm up the result cache
+                elem->miss_counter++;
+            }
+        }
         %endif
 
 
@@ -311,11 +330,36 @@
         }
         %else:
         // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
         %if inplace:
         // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED && result != lhs) {
+            if (elem->miss_counter >= 0) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+                <%count_stat("iterator_cache_init")%>
+            } else {
+                // warm up the result cache
+                elem->miss_counter++;
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+        %elif not locality_cache:
+            should_deallocate=1;
         %endif
 
-        int should_deallocate = 1;
         %endif
 
         if (should_deallocate) {
