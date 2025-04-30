@@ -729,7 +729,7 @@ def build_derivatives(flatten, cache_stats):
             left_type="adouble",
             right_type="adouble",
             result_type="NPY_DOUBLE",
-            loop_function="DOUBLE_logical_and",
+            loop_function="DOUBLE_arctan2",
             impl_template="function_binop.mako",
         ),
         FunctionBinOp(
