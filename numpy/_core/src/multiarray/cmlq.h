@@ -4,6 +4,72 @@
 #define CMLQ_CACHE_SIZE 512
 #define SUBSCRIPT_CACHE_SIZE 512
 #include <mapping.h>
+#include <stdbool.h>
+typedef struct _CMLQCounter{
+    union {
+        struct {
+            uint16_t backoff : 4;
+            uint16_t value : 12;
+        };
+        uint16_t as_counter;  // For printf("%#x", ...)
+    };
+}CMLQCounter;
+
+#define CMLQCOUNTER_WARMPUP_BACKOFF 1
+#define CMLQCOUNTER_WARMUP_VALUE 1
+
+#define CMLQCOUNTER_COOLDOWN_BACKOFF 0
+#define CMLQCOUNTER_COOLDOWN_VALUE 10
+
+/*Here we need functions:
+1. Initialize: WARMUP;
+2. advance : value--;
+3. backoff : 
+4. triger : value == 0?
+*/
+
+static inline CMLQCounter make_CMLQCounter(uint16_t value, uint16_t backoff){
+    assert(value<=0xFFF);
+    assert(backoff<=15);
+    CMLQCounter result;
+    result.value = value;
+    result.backoff = backoff;
+    return result;
+}
+
+static inline void advance_CMLQCounter(CMLQCounter* counter){
+    counter->value --;
+    return;
+    //return make_CMLQCounter(counter.value-1,counter.backoff);
+}
+
+static inline void backoff_CMLQCounter(CMLQCounter* counter){
+    if(counter->backoff<12){
+        counter->value = (1<<(counter->backoff+1))-1;
+        counter->backoff ++;
+    }
+    else {
+        counter -> value = (1<<12)-1;
+    }
+    return;
+    // if(counter.backoff<12){
+    //     return make_CMLQCounter((1 << (counter.backoff + 1)) - 1, counter.backoff);
+    // }
+    // else {
+    //     return make_CMLQCounter((1 << 12)-1,12);
+    // }
+}
+
+static inline void cooldown_CMLQCounter(CMLQCounter* counter){
+    counter->value = CMLQCOUNTER_COOLDOWN_VALUE;
+    counter->backoff = CMLQCOUNTER_COOLDOWN_BACKOFF;
+    return;
+    //return make_CMLQCounter(CMLQCOUNTER_COOLDOWN_VALUE,CMLQCOUNTER_COOLDOWN_BACKOFF);
+}
+
+static inline bool CMLQCounter_triggered(CMLQCounter counter){
+    return counter.value == 0;
+}
 
 typedef struct _CMLQIterCache {
     /* Initial fixed position data */
@@ -75,7 +141,7 @@ typedef struct _CMLQCacheStatsElem {
 typedef struct _CMLQLocalityCacheElem {
     enum CMLQCacheState state;
     PyArrayObject *result;
-    int16_t miss_counter;
+    CMLQCounter counter;
     union {
         CMLQTrivialPathCache trivial;
         CMLQIteratorPathCache iterator;
@@ -87,10 +153,9 @@ typedef struct _CMLQLocalityCacheElem {
 } CMLQLocalityCacheElem;
 
 #define RESULT_CACHE_WARMUP 6
-#define IS_RESULT_CACHE_UNSTABLE(elem) elem->miss_counter >= 100
+#define IS_RESULT_CACHE_UNSTABLE(elem) 0
 
 // a negative counter means we are still warming up the cache
-#define RESET_CACHE_COUNTER(elem) elem->miss_counter = -RESULT_CACHE_WARMUP
 
 typedef struct _CMLQSubscriptCacheElem {
     _Py_CODEUNIT *instr;

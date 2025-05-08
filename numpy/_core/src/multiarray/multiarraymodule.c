@@ -4735,12 +4735,13 @@ int
 cmlq_subscript_constant_ellipsis(void *restrict external_cache_pointer,
                                  PyObject *restrict **stack_pointer_ptr);
 int
-cmlq_subscript_variable(void *restrict external_cache_pointer,
-                        PyObject *restrict **stack_pointer_ptr);
+cmlq_subscript_generic(void *restrict external_cache_pointer,
+                                 PyObject *restrict **stack_pointer_ptr);
+
 #define SLOT_SUBSCRIPT_CONSTANT_SLICE NEXT_SLOT()
 #define SLOT_SUBSCRIPT_CONSTANT_ELLIPSIS NEXT_SLOT()
 #define SLOT_SUBSCRIPT_CONSTANT_INTEGER NEXT_SLOT()
-#define SLOT_SUBSCRIPT_VARIABLE NEXT_SLOT()
+#define SLOT_SUBSCRIPT_GENERIC NEXT_SLOT()
 static int
 is_constant_slice(_Py_CODEUNIT *instr)
 {
@@ -4965,12 +4966,15 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                         return 0;
                     }
                     else {
-                        return 0;                
-                        // specializer_info.SpecializeInstruction(
-                        //         instr, SLOT_SUBSCRIPT_VARIABLE,
-                        //         cmlq_subscript_variable,
-                        //         &locality_cache[next_result_cache_index]);
-                        // return 1;
+                        // PyExternal_SpecializeVariableSlice(frame, instr - 1,
+                        // *stack_pointer);
+                        
+                        ++ next_subscript_cache_index;
+                        specializer_info.SpecializeInstruction(
+                            instr,SLOT_SUBSCRIPT_GENERIC,
+                            cmlq_subscript_generic, &subscript_cache[next_subscript_cache_index]);
+                        return 1;
+                        
                     }
                 }
             }
@@ -5618,7 +5622,7 @@ PyInit__multiarray_umath(void)
         for (int i = 0; i < CMLQ_CACHE_SIZE; i++) {
             CMLQLocalityCacheElem *restrict elem = &locality_cache[i];
             elem->state = UNUSED;
-            RESET_CACHE_COUNTER(elem);
+            elem->counter = make_CMLQCounter(CMLQCOUNTER_WARMUP_VALUE,CMLQCOUNTER_WARMPUP_BACKOFF);
 #ifdef CMLQ_STATS
             memset(&elem->stats, 0, sizeof(CMLQCacheStatsElem));
 #endif

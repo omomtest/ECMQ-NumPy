@@ -27,6 +27,7 @@ deopt:
 
         elem->state = UNUSED;
         elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
 
     }
     %endif

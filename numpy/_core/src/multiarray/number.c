@@ -309,12 +309,12 @@ array_multiply(PyObject *m1, PyObject *m2)
      elem->state = UNUSED;
      elem->result = NULL;
      elem->iterator.cached_iter = NULL;
-     elem->miss_counter++;
+     backoff_CMLQCounter(&(elem->counter));
  
-     if (IS_RESULT_CACHE_UNSTABLE(elem)) {
-         // TODO: use an instruction derivative to model the states (with/without cache, maybe also TRIVIAL vs ITERATOR)
-         elem->state = DISABLED;
-     }
+    //  if (IS_RESULT_CACHE_UNSTABLE(elem)) {
+    //      // TODO: use an instruction derivative to model the states (with/without cache, maybe also TRIVIAL vs ITERATOR)
+    //      elem->state = DISABLED;
+    //  }
 
 }
 
@@ -325,12 +325,12 @@ static void trivial_cache_miss(CMLQLocalityCacheElem *elem)
      Py_XDECREF(elem->result);
      elem->state = UNUSED;
      elem->result = NULL;
-     elem->miss_counter++;
+     backoff_CMLQCounter(&(elem->counter));
  
-     if (IS_RESULT_CACHE_UNSTABLE(elem)) {
-         // TODO: use an instruction derivative to model the states (with/without cache, maybe also TRIVIAL vs ITERATOR)
-         elem->state = DISABLED;
-     }
+    //  if (IS_RESULT_CACHE_UNSTABLE(elem)) {
+    //      // TODO: use an instruction derivative to model the states (with/without cache, maybe also TRIVIAL vs ITERATOR)
+    //      elem->state = DISABLED;
+    //  }
  
  }
  
@@ -355,16 +355,16 @@ static void trivial_cache_miss(CMLQLocalityCacheElem *elem)
          }
  
          // only free the cache if it is a large one
-         if (elem->result && PyArray_NBYTES(elem->result)  >= getpagesize()) {
- #ifdef CMLQ_STATS
-             elem->stats.last_state = elem->state;
-             elem->stats.function_end_clear++;
- #endif
-             cache_miss(elem);
-             elem->state = UNUSED;
-         }
+//          if (elem->result && PyArray_NBYTES(elem->result)  >= getpagesize()) {
+//  #ifdef CMLQ_STATS
+//              elem->stats.last_state = elem->state;
+//              elem->stats.function_end_clear++;
+//  #endif
+//              cache_miss(elem);
+//              elem->state = UNUSED;
+//          }
  
-         RESET_CACHE_COUNTER(elem);
+         elem->counter = make_CMLQCounter(CMLQCOUNTER_WARMUP_VALUE,CMLQCOUNTER_WARMPUP_BACKOFF);
      }
  }
  
