@@ -1449,6 +1449,28 @@ deopt:
 fail:
     return -1;
 }
+
+int
+cmlq_subscript_variable(void *restrict external_cache_pointer,
+                        PyObject *restrict **stack_pointer_ptr)
+{
+    PyObject *result = NULL;
+    PyObject *subscr = (*stack_pointer_ptr)[-1];
+    PyObject *arrayobj = (*stack_pointer_ptr)[-2];
+
+    PyArrayObject *array = (PyArrayObject *)arrayobj;
+    result = array_subscript_asarray(array, subscr);
+    if (result == NULL) {
+        return -1;
+    }
+    Py_DECREF(arrayobj);
+    Py_DECREF(subscr);
+    (*stack_pointer_ptr)[-2] = result;
+    (*stack_pointer_ptr)--;
+
+    return 0;
+}
+
 /* make sure subscript always returns an array object */
 NPY_NO_EXPORT PyObject *
 array_subscript_asarray(PyArrayObject *self, PyObject *op)

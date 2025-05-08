@@ -4734,9 +4734,13 @@ cmlq_subscript_constant_int(void *restrict external_cache_pointer,
 int
 cmlq_subscript_constant_ellipsis(void *restrict external_cache_pointer,
                                  PyObject *restrict **stack_pointer_ptr);
+int
+cmlq_subscript_variable(void *restrict external_cache_pointer,
+                        PyObject *restrict **stack_pointer_ptr);
 #define SLOT_SUBSCRIPT_CONSTANT_SLICE NEXT_SLOT()
 #define SLOT_SUBSCRIPT_CONSTANT_ELLIPSIS NEXT_SLOT()
 #define SLOT_SUBSCRIPT_CONSTANT_INTEGER NEXT_SLOT()
+#define SLOT_SUBSCRIPT_VARIABLE NEXT_SLOT()
 static int
 is_constant_slice(_Py_CODEUNIT *instr)
 {
@@ -4961,8 +4965,12 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                         return 0;
                     }
                     else {
-                        // PyExternal_SpecializeVariableSlice(frame, instr - 1,
-                        // *stack_pointer);
+                        return 0;                
+                        // specializer_info.SpecializeInstruction(
+                        //         instr, SLOT_SUBSCRIPT_VARIABLE,
+                        //         cmlq_subscript_variable,
+                        //         &locality_cache[next_result_cache_index]);
+                        // return 1;
                     }
                 }
             }
