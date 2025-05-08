@@ -47,7 +47,7 @@ ${signature}
         path=5;
     }
 #define RESULT_CACHE_VALID(elem) \
-    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    ((PyObject *)(elem->result))->ob_refcnt>=1 && \
     PyArray_NDIM(elem->result) == result_ndims  && \
     PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
 #define CACHE_MATCH_TRIVIAL() ${"\\"}
@@ -480,7 +480,6 @@ case 5:{
     if (shape_lhs[nd_lhs - 1] != shape_rhs[nd_rhs - 2]) {
         goto deopt;
         }
-        
     int broadcast_ndim, iter_ndim;
     broadcast_ndim = 0;
     int n=nd_lhs>nd_rhs?nd_lhs:nd_rhs;
@@ -511,7 +510,7 @@ case 5:{
         for(int i=diff;i<broadcast_ndim ;i++){
             result_shape[i]=shape_lhs[i]>shape_rhs[i-diff]?shape_lhs[i]:shape_rhs[i-diff];
         }
-    }else{
+      }else{
         int diff=nd_rhs-nd_lhs;
         for(int i=0;i<diff;i++){
             result_shape[i]=shape_rhs[i];
@@ -519,21 +518,17 @@ case 5:{
         for(int i=diff;i<broadcast_ndim ;i++){
             result_shape[i]=shape_rhs[i]>shape_lhs[i-diff]?shape_rhs[i]:shape_lhs[i-diff];
         }
-    }
-        result_shape[n-2] = shape_lhs[nd_lhs - 2];
-        result_shape[n-1] = shape_rhs[nd_rhs - 1];
-        if (RESULT_CACHE_VALID(elem)) {
-
+      }
+          result_shape[n-2] = shape_lhs[nd_lhs - 2];
+          result_shape[n-1] = shape_rhs[nd_rhs - 1];
+          if (RESULT_CACHE_VALID(elem)) {
             result = elem->result;
             // the result will be pushed to the stack
             Py_INCREF(result);
-
             NpyIter *iter = elem->iterator.cached_iter;
-
-            PyArrayObject *op_it[2];
+            PyArrayObject *op_it[3];
             op_it[0] = lhs; // is always LHS
             op_it[1] = rhs;
-
             op_it[2] = result;
 
             NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
@@ -561,14 +556,14 @@ case 5:{
 
             NPY_END_THREADS;
             goto success;
-       } else {
-            <%count_stat("result_cache_misses")%>
-            <%count_stat("refcnt_misses", "((PyObject *)(elem->result))->ob_refcnt != 1")%>
-            <%count_stat("ndims_misses", "PyArray_NDIM(elem->result) != result_ndims")%>
-            <%count_stat("shape_misses", "!PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)")%>
-
-            iterator_cache_miss(elem);
-       }
+         } else {
+              <%count_stat("result_cache_misses")%>
+              <%count_stat("refcnt_misses", "((PyObject *)(elem->result))->ob_refcnt != 1")%>
+              <%count_stat("ndims_misses", "PyArray_NDIM(elem->result) != result_ndims")%>
+              <%count_stat("shape_misses", "!PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)")%>
+  
+              iterator_cache_miss(elem);
+         }
     }
     else {
         assert(elem->state == UNUSED || elem->state == DISABLED);
@@ -589,7 +584,6 @@ case 5:{
             elem->result = NULL;
         }
     }
-
 
 
     npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
@@ -655,14 +649,14 @@ case 5:{
     ## & ~NPY_ITER_OVERLAP_ASSUME_ELEMENTWISE;
 
 
-
-    
     PyArray_Descr *result_descr = PyArray_DescrFromType(${result_type});
-
-
+    if (result == NULL) {
     result = (PyArrayObject *)PyArray_NewFromDescr(&PyArray_Type, result_descr,
                                                        n, result_shape,
                                                        NULL, NULL, 0, NULL);
+    }else{
+        Py_INCREF(result);
+    }
     PyArrayObject *ops[3]={lhs, rhs, result};
     PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
         
@@ -674,7 +668,6 @@ case 5:{
         goto fail;         
     }
     ops[2] = NpyIter_GetOperandArray(iter);
-    Py_INCREF(ops[2]);
         for (int i = broadcast_ndim; i < iter_ndim; ++i) {
         if (NpyIter_RemoveAxis(iter, broadcast_ndim) != NPY_SUCCEED) {
    
@@ -716,9 +709,10 @@ case 5:{
 
     NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
 
-    ## for(int i=0;i<4;i++){
-    ##     fprintf(stderr,"inner_dimensions[%d]:%ld\n",i,inner_dimensions[i]);
-    ## }
+    ##  for(int i=0;i<4;i++){
+    ##      fprintf(stderr,"inner_dimensions[%d]:%ld\n",i,inner_dimensions[i]);
+    ##  }
+    ##  fprintf(stderr,"count_ptr:%ld\n",*count_ptr);
     NPY_BEGIN_THREADS_DEF; 
     NPY_BEGIN_THREADS_THRESHOLDED(full_size);
 
@@ -736,10 +730,9 @@ case 5:{
             elem->state = DISABLED;
         }
     %endif
-    if (elem->state != DISABLED && result != lhs) {
+    if (elem->state != DISABLED ) {
     if (elem->miss_counter >= 0) {
         elem->state = ITERATOR;
-
         elem->iterator.countptr = count_ptr;
         elem->iterator.dataptr = dataptrs;
         elem->iterator.strides = PyMem_Calloc(9 ,sizeof(npy_intp));
@@ -763,11 +756,7 @@ case 5:{
     }
 
     if (should_deallocate) {
-        ## if (elem->iterator.strides) {
-        ##     PyDataMem_FREE(elem->iterator.strides);
-        ##     elem->iterator.strides = NULL;
-        ## }
-            if (!NpyIter_Deallocate(iter)) {
+        if (!NpyIter_Deallocate(iter)) {
                  goto fail;
             }
         }
