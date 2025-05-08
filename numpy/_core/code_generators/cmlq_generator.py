@@ -1044,11 +1044,11 @@ def generate_case_guards(derivatives, lookup, out,template_):
         print(
             "{",
         )
-        if case_name=="NB_MATRIX_MULTIPLY":
-            print(
-                "if(PyArray_NDIM((PyArrayObject *)lhs)>2||PyArray_NDIM((PyArrayObject *)rhs)>2){" \
-                "return 0 ;}"
-            )
+        # if case_name=="NB_MATRIX_MULTIPLY":
+        #     print(
+        #         "if(PyArray_NDIM((PyArrayObject *)lhs)>2||PyArray_NDIM((PyArrayObject *)rhs)>2){" \
+        #         "return 0 ;}"
+        #     )
         for derivative in group:
             if not derivative.guard_template:
                 continue
