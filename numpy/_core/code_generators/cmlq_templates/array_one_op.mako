@@ -91,7 +91,7 @@
             %endif
 
             if (elem->state != DISABLED && result != lhs) {
-                if (elem->miss_counter >= 0) {
+                if (CMLQCounter_triggered(elem->counter)) {
                     elem->result = result;
                     ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
                     Py_INCREF(elem->result);
@@ -103,7 +103,7 @@
                     <%count_stat("trivial_cache_init")%>
                 } else {
                     // 预热结果缓存
-                    elem->miss_counter++;
+                    advance_CMLQCounter(&(elem->counter));
                 }
             }
         %endif
@@ -212,7 +212,7 @@
             %endif
 
             if (elem->state != DISABLED && result != lhs) {
-                if (elem->miss_counter >= 0) {
+                if (CMLQCounter_triggered(elem->counter)) {
                     elem->state = ITERATOR;
 
                     elem->iterator.countptr = countptr;
@@ -227,7 +227,7 @@
                     <%count_stat("iterator_cache_init")%>
                 } else {
                     // 预热结果缓存
-                    elem->miss_counter++;
+                    advance_CMLQCounter(&(elem->counter));
                     should_deallocate = 1;
                 }
             } else {

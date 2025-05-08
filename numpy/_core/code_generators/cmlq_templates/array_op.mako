@@ -155,7 +155,7 @@
             %endif
 
         if (elem->state != DISABLED && result != lhs) {
-            if (elem->miss_counter >= 0) {
+            if (CMLQCounter_triggered(elem->counter)) {
                 elem->result = result;
                 ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
                 Py_INCREF(elem->result);
@@ -168,7 +168,7 @@
                 <%count_stat("trivial_cache_init")%>
             } else {
                 // warm up the result cache
-                elem->miss_counter++;
+                advance_CMLQCounter(&(elem->counter));
             }
         }
         %endif
@@ -177,7 +177,7 @@
         // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
 
         if (elem->state != DISABLED && result != lhs) {
-            if (elem->miss_counter >= 0) {
+            if (CMLQCounter_triggered(elem->counter)) {
                 elem->result = NULL;
 
                 elem->trivial.count = count;
@@ -188,7 +188,7 @@
                 <%count_stat("trivial_cache_init")%>
             } else {
                 // warm up the result cache
-                elem->miss_counter++;
+                advance_CMLQCounter(&(elem->counter));
             }
         }
         %endif
@@ -306,7 +306,7 @@
         %endif
 
         if (elem->state != DISABLED && result != lhs) {
-            if (elem->miss_counter >= 0) {
+            if (CMLQCounter_triggered(elem->counter)) {
                 elem->state = ITERATOR;
 
                 elem->iterator.countptr = countptr;
@@ -321,7 +321,7 @@
                 <%count_stat("iterator_cache_init")%>
             } else {
                 // warm up the result cache
-                elem->miss_counter++;
+                advance_CMLQCounter(&(elem->counter));
                 should_deallocate = 1;
             }
         } else {
@@ -334,7 +334,7 @@
         %if inplace:
         // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
         if (elem->state != DISABLED && result != lhs) {
-            if (elem->miss_counter >= 0) {
+            if (CMLQCounter_triggered(elem->counter)) {
                 elem->state = ITERATOR;
 
                 elem->iterator.countptr = countptr;
@@ -349,7 +349,7 @@
                 <%count_stat("iterator_cache_init")%>
             } else {
                 // warm up the result cache
-                elem->miss_counter++;
+                advance_CMLQCounter(&(elem->counter));
                 should_deallocate = 1;
             }
         } else {
