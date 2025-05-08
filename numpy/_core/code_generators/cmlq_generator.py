@@ -141,6 +141,8 @@ class BinOp:
         return args
 
     def slot_name(self):
+        if self.operation=='power'and self.guard_template=="array_power_case_guard.mako":
+            return f"SLOT_{self.left_type.upper()}_SQUARE_{self.operation.upper()}_{self.right_type.upper()}"
         return f"SLOT_{self.left_type.upper()}_{self.operation.upper()}_{self.right_type.upper()}"
 
     def signature(self):
