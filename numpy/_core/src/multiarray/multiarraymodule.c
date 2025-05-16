@@ -4834,16 +4834,22 @@ report_missing_binop_case(_Py_CODEUNIT *instr, PyObject *lhs, PyObject *rhs)
     //     fprintf(stderr, "\n");
     // }
 }
-
+#include "record_info.h"
 static int
 np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
 {
 #define STACK_ELEMENT(i) (*stack_pointer)[i]
+#ifdef NPY_COLLECT_BYTECODE
+collect_base_info(instr);
+#endif
 
     switch (instr->op.code) {
         // TODO: cache information that is expensive to compute, e.g. ufunc
         // overloads
         case BINARY_OP: {
+#ifdef NPY_COLLECT_BYTECODE
+            collect_binop_subscr_info(instr,*stack_pointer);
+#endif
             PyObject *rhs = STACK_ELEMENT(-1);
             PyObject *lhs = STACK_ELEMENT(-2);  // 4
             // assert(PyArray_CheckExact(lhs) || !PyArray_Check(lhs));
@@ -4881,6 +4887,9 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
             break;
         }
         case BINARY_SUBSCR: {
+#ifdef NPY_COLLECT_BYTECODE
+            collect_binop_subscr_info(instr,*stack_pointer);
+#endif
             PyObject *subscript = STACK_ELEMENT(-1);
             PyObject *array = STACK_ELEMENT(-2);
             if (PyArray_CheckExact(array) &&
@@ -4969,7 +4978,7 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                         // PyExternal_SpecializeVariableSlice(frame, instr - 1,
                         // *stack_pointer);
                         
-                        ++ next_subscript_cache_index;
+                        // ++ next_subscript_cache_index;
                         specializer_info.SpecializeInstruction(
                             instr,SLOT_SUBSCRIPT_GENERIC,
                             cmlq_subscript_generic, &subscript_cache[next_subscript_cache_index]);
@@ -4994,6 +5003,9 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
             // fprintf(stderr, "instr->arg=%d,callabel:%p\n", instr->op.arg,
             //         callable);
 
+#ifdef NPY_COLLECT_BYTECODE
+            collect_call_info(instr,*stack_pointer, callable);
+#endif
             if (Py_TYPE(callable) == &PyUFunc_Type) {
                 PyUFuncObject *ufunc = (PyUFuncObject *)callable;
                 // TODO: this is inefficient and might even be wrong in
@@ -5010,6 +5022,7 @@ np_specialize_op(_Py_CODEUNIT *instr, PyObject ***stack_pointer)
                         }
                         const char *name = ufunc_get_name_cstr(ufunc);
                         // fprintf(stderr, "nameoneop:%s\n", name);
+
                         if (strcmp(name, "square") == 0) {
 #include "cmlq_square.h"
                         }
