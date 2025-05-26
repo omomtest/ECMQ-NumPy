@@ -5163,8 +5163,166 @@ collect_base_info(instr);
                         return 0;
                     }
                 }
+                
             }
+            break;
         }
+        case CALL_KW:{
+            PyObject *callable = STACK_ELEMENT(-(3 + instr->op.arg));
+            PyObject *kwnames = STACK_ELEMENT(-1);
+            PyObject *out = STACK_ELEMENT(-2);
+            // fprintf(stderr, "kwnames:%p\n",kwnames);
+            // fprintf(stderr, "out:%p\n",out);
+
+            // for (int i = 1; i <= 3 + instr->op.arg; i++) {
+            //     fprintf(stderr, "stack[%d]:%p\n",i,STACK_ELEMENT(-i));
+            // }
+#ifdef NPY_COLLECT_BYTECODE
+            collect_callkw_info(instr,*stack_pointer, callable, kwnames);
+#endif
+
+            if (Py_TYPE(callable) != &PyUFunc_Type) {
+                return 0;
+            }
+                if (kwnames == NULL) {
+                    return 0;
+                }
+                else if (!PyTuple_Check(kwnames)) {
+                    return 0;
+                }
+                Py_ssize_t nkwargs = PyTuple_GET_SIZE(kwnames);
+                if (nkwargs != 1) {
+                    return 0;
+                }
+                else {
+                    PyObject *key = PyTuple_GET_ITEM(kwnames, 0);
+                    if (PyUnicode_Check(key) &&
+                        PyUnicode_CompareWithASCIIString(key, "out") != 0) {
+                        return 0;
+                    }
+                }
+    
+
+                PyUFuncObject *ufunc = (PyUFuncObject *)callable;
+                switch (instr->op.arg) {
+                    case 2: {
+                        PyObject *lhs = STACK_ELEMENT(-3);
+                        if (!PyArray_CheckExact(lhs)) {
+                            return 0;
+                        }
+                        const char *name = ufunc_get_name_cstr(ufunc);
+                        // fprintf(stderr, "nameoneop:%s\n", name);
+                        if (strcmp(name, "sqrt") == 0)
+                        {
+#include "cmlq_sqrt_kw.h"
+                        }
+
+                        //                         else if (strcmp(name, "square")
+                        //                         == 0) {
+                        // #include "cmlq_square_kw.h"
+                        //                         }
+
+                        //                         else if (strcmp(name,
+                        //                         "absolute") == 0) {
+                        // #include "cmlq_absolute_kw.h"
+                        //                         }
+                        // else if (strcmp(name, "reciprocal") == 0) {
+                        // #include "cmlq_reciprocal_kw.h"
+                        //                         }
+                        //                         else if (strcmp(name,
+                        //                         "exp") == 0) {
+                        // #include "cmlq_exp_kw.h"
+                        //                         }
+                        //                         else if (strcmp(name,
+                        //                         "tanh") == 0) {
+                        // #include "cmlq_tanh_kw.h"
+                        //                         }
+                        break;
+                    }
+                    case 3: {
+                        PyObject *rhs = STACK_ELEMENT(-3);
+                        PyObject *lhs = STACK_ELEMENT(-4);
+                        if (PyArray_CheckExact(lhs) &&
+                            PyArray_CheckExact(rhs)) {
+                            const char *name = ufunc_get_name_cstr(ufunc);
+                            //  fprintf(stderr, "nameaa:%s\n", name);
+
+                             if (strcmp(name, "add") == 0) {
+#include "cmlq_add_a_kw.h"
+                            }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "subtract") == 0) {
+                            // #include "cmlq_subtract_a_kw.h"
+                            //                             }
+                            else if(strcmp(name,"multiply") == 0) {
+#include "cmlq_multiply_a_kw.h"
+                                                        }
+                            return 0;
+                        }
+                        else if (PyArray_CheckExact(lhs)) {
+                            const char *name = ufunc_get_name_cstr(ufunc);
+                            // fprintf(stderr, "namela:%s\n", name);
+
+                            //                             else if
+                            //                             (strcmp(name, "add")
+                            //                             == 0) {
+                            // #include "cmlq_add_l_kw.h"
+                            //                             }
+                            //                             else if
+                            //                             (strcmp(name,
+                            //                             "subtract") == 0) {
+                            // #include "cmlq_subtract_l_kw.h"
+                            //                             }
+                            if(strcmp(name,"multiply") == 0) {
+#include "cmlq_multiply_l_kw.h"
+                                                        }
+                            return 0;
+                        }
+                        else if (PyArray_CheckExact(rhs)) {
+                             const char *name = ufunc_get_name_cstr(ufunc);
+                            //  fprintf(stderr, "namear:%s\n", name);
+                             //                             const char *name =
+                             //                             ufunc_get_name_cstr(ufunc);
+                             //                             if (strcmp(name,
+                             //                             "minimum") == 0) {
+                             // #include "cmlq_minimum_r_kw.h"
+                             //                             }
+                             //                             else if
+                             //                             (strcmp(name,
+                             //                             "maximum") == 0) {
+                             // #include "cmlq_maximum_r_kw.h"
+                             //                             }
+                             //                             else if
+                             //                             (strcmp(name,
+                             //                             "add")
+                             //                             == 0) {
+                             // #include "cmlq_add_r_kw.h"
+                             //                             }
+                             //                             else if
+                             //                             (strcmp(name,
+                             //                             "subtract") == 0) {
+                             // #include "cmlq_subtract_r_kw.h"
+                             //                             }
+                             if (strcmp(name, "multiply") == 0) {
+#include "cmlq_multiply_r_kw.h"
+                                                        }
+                            return 0;
+                        }
+
+                        break;
+                    }
+                    default: {
+                        // const char *name = ufunc_get_name_cstr(ufunc);
+                        // fprintf(stderr, "name%dop:%s\n", instr->op.arg,
+                        // name);
+                        return 0;
+                    }
+                }
+            }
+
+        default:
+            break;
     }
 
     return 0;

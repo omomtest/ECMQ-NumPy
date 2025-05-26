@@ -1,4 +1,4 @@
-<%page args="arity=1, auxdata_init=None"/>
+<%page args="arity=2, auxdata_init=None"/>
 <% assert arity == 2 or arity == 1 %>
 
 <%namespace file="cache_stats_macro.mako" import="*"/>
@@ -20,16 +20,11 @@
     if (CACHE_MATCH_TRIVIAL()) {
         <%count_stat("trivial_cache_hits")%>
 
-        %if not inplace:
-        if (RESULT_CACHE_VALID(elem)) {
-        %endif
             <%count_stat("result_cache_hits")%>
 
-            %if inplace:
-            result = lhs;
-            %else:
-            result = elem->result;
-            %endif
+
+            result = out;
+
 
             // in addition to the cache, the result will be pushed to the stack
             Py_INCREF(result);
@@ -53,29 +48,13 @@
             NPY_END_THREADS;
 
             goto success;
-        %if not inplace:
-        }
-        else {
-            <%count_stat("result_cache_misses")%>
-            <%count_stat("refcnt_misses", "((PyObject *)(elem->result))->ob_refcnt != 1")%>
-            <%count_stat("ndims_misses", "PyArray_NDIM(elem->result) != result_ndims")%>
-            <%count_stat("shape_misses", "!PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)")%>
-            trivial_cache_miss(elem);
-        }
-        %endif
+
     } else if (CACHE_MATCH_ITERATOR()) {
         <%count_stat("iterator_cache_hits")%>
 
-        %if not inplace:
-        if (RESULT_CACHE_VALID(elem)) {
-        %endif
-            <%count_stat("result_cache_hits")%>
 
-            %if inplace:
-            result = lhs;
-            %else:
-            result = elem->result;
-            %endif
+            <%count_stat("result_cache_hits")%>
+            result = out;
 
             // the result will be pushed to the stack
             Py_INCREF(result);
@@ -126,16 +105,7 @@
 
             // standard epilogue here...
             goto success;
-       %if not inplace:
-       } else {
-            <%count_stat("result_cache_misses")%>
-            <%count_stat("refcnt_misses", "((PyObject *)(elem->result))->ob_refcnt != 1")%>
-            <%count_stat("ndims_misses", "PyArray_NDIM(elem->result) != result_ndims")%>
-            <%count_stat("shape_misses", "!PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)")%>
 
-            iterator_cache_miss(elem);
-       }
-       %endif
     } else {
         assert(elem->state == UNUSED || elem->state == DISABLED);
 

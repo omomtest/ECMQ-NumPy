@@ -1,8 +1,12 @@
+<%page args="kw=0"/>
 <%namespace file="cache_stats_macro.mako" import="*"/>
-
+%if kw==0:
     PyObject *m1 = (*stack_pointer_ptr)[-2];
     PyObject *m2 = (*stack_pointer_ptr)[-1];
-
+%else:
+    PyObject *m1 = (*stack_pointer_ptr)[-4];
+    PyObject *m2 = (*stack_pointer_ptr)[-3];
+%endif
     %if commutative and right_scalar_name is not UNDEFINED:
     if (Py${right_scalar_name}_CheckExact(m1)) {
         PyObject *tmp = m1;

@@ -1,7 +1,9 @@
 <%namespace file="cache_stats_macro.mako" import="*"/>
-
+%if kw==0:
 PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+%else:
+PyObject *m1 = (*stack_pointer_ptr)[-3];
+%endif
 %if left_scalar_name is not UNDEFINED:
     if (NPY_UNLIKELY(!Py${left_scalar_name}_CheckExact(m1))) {
         <%count_stat("type_misses")%>

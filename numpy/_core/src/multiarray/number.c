@@ -346,7 +346,8 @@ static void trivial_cache_miss(CMLQLocalityCacheElem *elem)
  
  void invalidate_cache_entry(_Py_CODEUNIT *instr, void *cache_pointer)
  {
-     if (instr->op.code == BINARY_OP_EXTERNAL || instr->op.code == CALL_EXTERNAL) {
+     if (instr->op.code == BINARY_OP_EXTERNAL ||
+         instr->op.code == CALL_EXTERNAL || CALL_KW_EXTERNAL) {
          CMLQLocalityCacheElem *restrict elem = cache_pointer;
  
          if (elem->state == BROADCAST) {

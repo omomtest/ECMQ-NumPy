@@ -268,7 +268,19 @@ class FunctionOneOp(OneOp):
 
     def slot_name(self):
         return f"SLOT_{self.operation.upper()}_{self.left_type.upper()}"
+@define(kw_only=True)
+class FunctionOneOpKw(OneOp):
+ 
+    def __attrs_post_init__(self):
+        if self.opname == "":
+            self.opname = f"cmlq_{self.operation}_{self.left_type}_kw"
 
+    @property
+    def with_broadcast_cache_variant(self):
+        return False
+
+    def slot_name(self):
+        return f"SLOT_{self.operation.upper()}_{self.left_type.upper()}_KW"
 
 @define(kw_only=True)
 class FunctionBinOp(BinOp):
@@ -283,6 +295,19 @@ class FunctionBinOp(BinOp):
 
     def slot_name(self):
         return f"SLOT_{self.operation.upper()}_{self.left_type.upper()}_{self.right_type.upper()}"
+@define(kw_only=True)
+class FunctionBinOpKw(BinOp):
+    def __attrs_post_init__(self):
+        if self.opname == "":
+            self.opname = f"cmlq_{self.operation}_{self.left_type}_{self.right_type}_kw"
+
+
+    @property
+    def with_broadcast_cache_variant(self):
+        return False
+
+    def slot_name(self):
+        return f"SLOT_{self.operation.upper()}_{self.left_type.upper()}_{self.right_type.upper()}_KW"
 
 
 @define(kw_only=True)
@@ -964,6 +989,63 @@ def build_derivatives(flatten, cache_stats):
         #      loop_function="DOUBLE_exp",
         #      impl_template="function_oneop.mako",
         #  ),
+        FunctionBinOpKw(
+            operation="add",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_add",
+            impl_template="function_binop_kw.mako",
+            
+        ),
+        FunctionBinOpKw(
+            operation="add",
+            left_type="afloat",
+            right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_add",
+            impl_template="function_binop_kw.mako",
+        ),
+        FunctionBinOpKw(
+            operation="add",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_add",
+            impl_template="function_binop_kw.mako",
+        ),
+        FunctionBinOpKw(
+            operation="multiply",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_multiply",
+            impl_template="function_binop_kw.mako",
+        ),
+
+        FunctionBinOpKw(
+            operation="multiply",
+            left_type="adouble",
+            right_type="sdouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_multiply",
+            impl_template="function_binop_kw.mako",
+        ),
+        FunctionBinOpKw(
+            operation="multiply",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_multiply",
+            impl_template="function_binop_kw.mako",
+        ),
+        FunctionOneOpKw(
+            operation='sqrt',
+            left_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_sqrt",
+            impl_template="function_oneop_kw.mako",
+        ),
     ]
 
 
@@ -1079,6 +1161,7 @@ def generate_func_case_guards(derivatives, lookup, out,function,template_=None):
         for d in derivatives
         if isinstance(d,OneOp) and isinstance(d,FunctionOneOp) and d.operation==function
     ]
+   
     if len(binops)!=0:
         groups = defaultdict(list)
         for binop in binops:
@@ -1112,6 +1195,57 @@ def generate_func_case_guards(derivatives, lookup, out,function,template_=None):
             print(
                 "\t//missing func_one_Op\n"
             )
+   
+
+def generate_func_kw_case_guards(derivatives, lookup, out,function,template_=None):
+    global print
+    print = functools.partial(print, file=out)
+    if template_ is not None:
+        template_ = template_+".mako"
+    binopskw = [
+        d
+        for d in derivatives
+        if isinstance(d, BinOp) and  isinstance(d, FunctionBinOpKw) and d.operation == function
+    ]
+    oneOpsKw=[
+        d
+        for d in derivatives
+        if isinstance(d,OneOp) and isinstance(d,FunctionOneOpKw) and d.operation==function
+    ]
+    if len(binopskw)!=0:
+        groups = defaultdict(list)
+        for binopkw in binopskw:
+            name = binopkw.operation
+            groups[name].append(binopkw)
+        # print("\tPyObject *rhs = STACK_ELEMENT(-1);")
+        # print("\tPyObject *lhs = STACK_ELEMENT(-2);")
+        for group_name, group in groups.items():
+            for derivative in group:
+                if not derivative.guard_template:
+                    continue
+                template = lookup.get_template(template_)
+                template_args = derivative.to_template_args()
+                render_template(template, template_args, out)
+            print(
+                "\treport_missing_binop_case(instr, lhs, rhs);\n"
+            )
+    if len(oneOpsKw)!=0:
+        ogroups=defaultdict(list)
+        for oneOpkw in oneOpsKw:
+            name = oneOpkw.operation
+            ogroups[name].append(oneOpkw)
+        # print("\tPyObject *lhs = STACK_ELEMENT(-1);")
+        for group_name, group in ogroups.items():
+            for derivative in group:
+                if not derivative.guard_template:
+                    continue
+                template = lookup.get_template(derivative.guard_template)
+                template_args = derivative.to_template_args()
+                render_template(template, template_args, out)
+            print(
+                "\t//missing func_one_Op\n"
+            )
+
 def generate_declarations(derivatives, out):
     global print
     print = functools.partial(print, file=out)
@@ -1170,6 +1304,12 @@ parser.add_argument(
     default=False,
     help="Generate code to gather statistics on cache locality",
 )
+parser.add_argument(
+    "--kw",
+    action="store_true",
+    default=False,
+    help="Generate code about CALL_KW",
+)
 
 parser.add_argument(
     "-f",
@@ -1192,7 +1332,9 @@ with smart_open(args.outfile) as out:
         generate_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["template"])
     elif args.declarations:
         generate_declarations(derivatives, out)
-    elif args.func :
+    elif args.func and not args.kw:
         generate_func_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["funcname"],dict(args._get_kwargs())["template"])
+    elif args.func and args.kw:
+        generate_func_kw_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["funcname"],dict(args._get_kwargs())["template"])
     else:
         generate_implementations(derivatives, lookup, out)

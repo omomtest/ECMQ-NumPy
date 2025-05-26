@@ -1200,6 +1200,62 @@ cmlq_add_r=custom_target(
   input:'code_generators/cmlq_generator.py',
   command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','add','--template','binop_case_guards_r']
 )
+cmlq_add_a_kw=custom_target(
+  'cmlq-addkw-a',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_add_a_kw.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','add','--template','binop_case_guards_a']
+)
+cmlq_add_l_kw=custom_target(
+  'cmlq-addkw-l',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_add_l_kw.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','add','--template','binop_case_guards_l']
+)
+cmlq_add_r_kw=custom_target(
+  'cmlq-addkw-r',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_add_r_kw.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','add','--template','binop_case_guards_r']
+)
+cmlq_multiply_r_kw=custom_target(
+  'cmlq-multiplykw-r',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_multiply_r_kw.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','multiply','--template','binop_case_guards_r']
+)
+cmlq_multiply_l_kw=custom_target(
+  'cmlq-multiplykw-l',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_multiply_l_kw.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','multiply','--template','binop_case_guards_l']
+)
+cmlq_multiply_a_kw=custom_target(
+  'cmlq-multiplykw-a',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_multiply_a_kw.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','multiply','--template','binop_case_guards_a']
+)
+cmlq_sqrt_kw=custom_target(
+  'cmlq-sqrtkw',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_sqrt_kw.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','sqrt']
+)
 cmlq_subtract_a=custom_target(
   'cmlq-subtract-a',
   build_always_stale:true,
@@ -1393,6 +1449,13 @@ src_multiarray = multiarray_gen_headers + [
   cmlq_add_a,
   cmlq_add_l,
   cmlq_add_r,
+  cmlq_add_a_kw,
+  cmlq_add_l_kw,
+  cmlq_add_r_kw,
+  cmlq_multiply_r_kw, 
+  cmlq_multiply_l_kw,
+  cmlq_multiply_a_kw,
+  cmlq_sqrt_kw,  
   cmlq_logical_and_a,
   cmlq_logical_not_a,
   cmlq_arctan2_a,
