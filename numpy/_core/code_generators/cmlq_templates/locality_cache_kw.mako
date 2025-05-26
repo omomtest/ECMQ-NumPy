@@ -22,7 +22,6 @@
 
             <%count_stat("result_cache_hits")%>
 
-
             result = out;
 
 
@@ -46,7 +45,6 @@
             ${loop_function}(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
 
             NPY_END_THREADS;
-
             goto success;
 
     } else if (CACHE_MATCH_ITERATOR()) {

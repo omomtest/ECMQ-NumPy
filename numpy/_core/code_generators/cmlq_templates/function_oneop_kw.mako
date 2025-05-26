@@ -23,7 +23,7 @@ ${signature}
     <%include file="locality_cache_kw.mako" args="arity = 1"/>
     %endif
 
-    <%include file="array_one_op.mako" args="try_elide_temp=False"/>
+    <%include file="array_op_kw.mako" args="try_elide_temp=False ,arity = 1"/>
 
 deopt:
     return 2;

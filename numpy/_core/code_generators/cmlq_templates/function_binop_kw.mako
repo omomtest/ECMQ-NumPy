@@ -26,7 +26,7 @@ ${signature}
     <%include file="locality_cache_kw.mako"/>
     %endif
 
-    <%include file="array_op.mako" args="try_elide_temp=False"/>
+    <%include file="array_op_kw.mako" args="try_elide_temp=False"/>
 
 deopt:
 ## fprintf(stderr, "deopt\n");

@@ -5211,9 +5211,10 @@ collect_base_info(instr);
                             return 0;
                         }
                         const char *name = ufunc_get_name_cstr(ufunc);
-                        // fprintf(stderr, "nameoneop:%s\n", name);
+                        //fprintf(stderr, "nameoneop:%s\n", name);
                         if (strcmp(name, "sqrt") == 0)
                         {
+
 #include "cmlq_sqrt_kw.h"
                         }
 

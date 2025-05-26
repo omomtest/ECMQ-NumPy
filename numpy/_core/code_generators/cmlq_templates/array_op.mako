@@ -163,7 +163,9 @@
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
                 elem->trivial.fixed_strides[1] = fixed_strides[1];
+                %if arity == 2:
                 elem->trivial.fixed_strides[2] = fixed_strides[2];
+                %endif
                 elem->state = TRIVIAL;
                 <%count_stat("trivial_cache_init")%>
             } else {

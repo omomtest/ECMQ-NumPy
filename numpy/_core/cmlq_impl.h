@@ -9,24 +9,20 @@ int cmlq_afloat_subtract_afloat(void *restrict external_cache_pointer, PyObject 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -412,24 +408,20 @@ int cmlq_afloat_inplace_subtract_afloat(void *restrict external_cache_pointer, P
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -776,24 +768,20 @@ int cmlq_afloat_add_afloat(void *restrict external_cache_pointer, PyObject *rest
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -1179,24 +1167,20 @@ int cmlq_afloat_inplace_add_afloat(void *restrict external_cache_pointer, PyObje
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -1548,18 +1532,15 @@ int cmlq_afloat_inplace_add_slong(void *restrict external_cache_pointer, PyObjec
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -1909,18 +1890,15 @@ int cmlq_afloat_inplace_add_slong_broadcast_cache(void *restrict external_cache_
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -2156,18 +2134,15 @@ int cmlq_adouble_inplace_add_slong(void *restrict external_cache_pointer, PyObje
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -2517,18 +2492,15 @@ int cmlq_adouble_inplace_add_slong_broadcast_cache(void *restrict external_cache
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -2759,24 +2731,20 @@ int cmlq_afloat_multiply_afloat(void *restrict external_cache_pointer, PyObject 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -3162,24 +3130,20 @@ int cmlq_adouble_subtract_adouble(void *restrict external_cache_pointer, PyObjec
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -3565,24 +3529,20 @@ int cmlq_adouble_inplace_subtract_adouble(void *restrict external_cache_pointer,
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -3929,18 +3889,15 @@ int cmlq_adouble_subtract_sfloat(void *restrict external_cache_pointer, PyObject
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -4325,18 +4282,15 @@ int cmlq_adouble_subtract_sfloat_broadcast_cache(void *restrict external_cache_p
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -4542,24 +4496,20 @@ int cmlq_adouble_add_adouble(void *restrict external_cache_pointer, PyObject *re
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -4945,24 +4895,20 @@ int cmlq_adouble_inplace_add_adouble(void *restrict external_cache_pointer, PyOb
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -5314,18 +5260,15 @@ int cmlq_adouble_add_sfloat(void *restrict external_cache_pointer, PyObject *res
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -5715,18 +5658,15 @@ int cmlq_adouble_add_sfloat_broadcast_cache(void *restrict external_cache_pointe
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -5937,18 +5877,15 @@ int cmlq_adouble_inplace_add_sfloat(void *restrict external_cache_pointer, PyObj
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -6298,18 +6235,15 @@ int cmlq_adouble_inplace_add_sfloat_broadcast_cache(void *restrict external_cach
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -6540,24 +6474,20 @@ int cmlq_adouble_multiply_adouble(void *restrict external_cache_pointer, PyObjec
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -6948,18 +6878,15 @@ int cmlq_adouble_multiply_slong(void *restrict external_cache_pointer, PyObject 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -7350,18 +7277,15 @@ int cmlq_adouble_multiply_slong_broadcast_cache(void *restrict external_cache_po
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -7573,18 +7497,15 @@ int cmlq_adouble_multiply_sfloat(void *restrict external_cache_pointer, PyObject
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -7974,18 +7895,15 @@ int cmlq_adouble_multiply_sfloat_broadcast_cache(void *restrict external_cache_p
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -8196,18 +8114,15 @@ int cmlq_adouble_inplace_multiply_sfloat(void *restrict external_cache_pointer, 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -8557,18 +8472,15 @@ int cmlq_adouble_inplace_multiply_sfloat_broadcast_cache(void *restrict external
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -8804,18 +8716,15 @@ int cmlq_along_multiply_slong(void *restrict external_cache_pointer, PyObject *r
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_LONG)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -9205,18 +9114,15 @@ int cmlq_along_multiply_slong_broadcast_cache(void *restrict external_cache_poin
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_LONG)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -9422,18 +9328,15 @@ int cmlq_along_true_divide_sfloat(void *restrict external_cache_pointer, PyObjec
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_LONG)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -9818,18 +9721,15 @@ int cmlq_along_true_divide_sfloat_broadcast_cache(void *restrict external_cache_
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_LONG)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -10035,18 +9935,15 @@ int cmlq_adouble_true_divide_sfloat(void *restrict external_cache_pointer, PyObj
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -10431,18 +10328,15 @@ int cmlq_adouble_true_divide_sfloat_broadcast_cache(void *restrict external_cach
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -10648,18 +10542,15 @@ int cmlq_adouble_true_divide_slong(void *restrict external_cache_pointer, PyObje
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -11045,18 +10936,15 @@ int cmlq_adouble_true_divide_slong_broadcast_cache(void *restrict external_cache
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -11262,7 +11150,6 @@ int cmlq_sfloat_true_divide_adouble(void *restrict external_cache_pointer, PyObj
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m1))) {
 
-            fprintf(stderr, "left_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *left_descr = NULL;
@@ -11271,13 +11158,11 @@ int cmlq_sfloat_true_divide_adouble(void *restrict external_cache_pointer, PyObj
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -11656,7 +11541,6 @@ int cmlq_sfloat_true_divide_adouble_broadcast_cache(void *restrict external_cach
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m1))) {
 
-            fprintf(stderr, "left_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *left_descr = NULL;
@@ -11666,13 +11550,11 @@ int cmlq_sfloat_true_divide_adouble_broadcast_cache(void *restrict external_cach
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -11872,24 +11754,20 @@ int cmlq_adouble_true_divide_adouble(void *restrict external_cache_pointer, PyOb
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -12276,18 +12154,15 @@ int cmlq_adouble_power_sfloat(void *restrict external_cache_pointer, PyObject *r
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -13366,18 +13241,15 @@ int cmlq_adouble_square_power_sfloat(void *restrict external_cache_pointer, PyOb
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -13748,18 +13620,15 @@ int cmlq_adouble_square_power_slong(void *restrict external_cache_pointer, PyObj
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -14130,18 +13999,15 @@ int cmlq_adouble_power_slong(void *restrict external_cache_pointer, PyObject *re
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -14497,24 +14363,20 @@ int cmlq_minimum_aint_aint(void *restrict external_cache_pointer, PyObject *rest
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -14881,24 +14743,20 @@ int cmlq_minimum_afloat_afloat(void *restrict external_cache_pointer, PyObject *
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -15270,18 +15128,15 @@ int cmlq_minimum_afloat_slong(void *restrict external_cache_pointer, PyObject *r
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -15645,24 +15500,20 @@ int cmlq_minimum_adouble_adouble(void *restrict external_cache_pointer, PyObject
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -16029,24 +15880,20 @@ int cmlq_maximum_aint_aint(void *restrict external_cache_pointer, PyObject *rest
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -16413,24 +16260,20 @@ int cmlq_maximum_afloat_afloat(void *restrict external_cache_pointer, PyObject *
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -16802,18 +16645,15 @@ int cmlq_maximum_adouble_slong(void *restrict external_cache_pointer, PyObject *
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -17182,18 +17022,15 @@ int cmlq_maximum_afloat_slong(void *restrict external_cache_pointer, PyObject *r
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses1\n");
             goto deopt;
         }
         PyArray_Descr *right_descr = NULL;
@@ -17557,24 +17394,20 @@ int cmlq_maximum_adouble_adouble(void *restrict external_cache_pointer, PyObject
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -17941,24 +17774,20 @@ int cmlq_logical_not_abool_abool(void *restrict external_cache_pointer, PyObject
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_BOOL)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_BOOL)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -18325,24 +18154,20 @@ int cmlq_less_equal_adouble_adouble(void *restrict external_cache_pointer, PyObj
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -18709,24 +18534,20 @@ int cmlq_logical_and_abool_abool(void *restrict external_cache_pointer, PyObject
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_BOOL)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_BOOL)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -19093,24 +18914,20 @@ int cmlq_arctan2_adouble_adouble(void *restrict external_cache_pointer, PyObject
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -19477,24 +19294,20 @@ int cmlq_add_aint_aint(void *restrict external_cache_pointer, PyObject *restrict
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -19861,24 +19674,20 @@ int cmlq_add_afloat_afloat(void *restrict external_cache_pointer, PyObject *rest
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -20245,24 +20054,20 @@ int cmlq_add_adouble_adouble(void *restrict external_cache_pointer, PyObject *re
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -20629,24 +20434,20 @@ int cmlq_subtract_aint_aint(void *restrict external_cache_pointer, PyObject *res
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -21013,24 +20814,20 @@ int cmlq_subtract_afloat_afloat(void *restrict external_cache_pointer, PyObject 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -21397,24 +21194,20 @@ int cmlq_subtract_adouble_adouble(void *restrict external_cache_pointer, PyObjec
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -21781,24 +21574,20 @@ int cmlq_multiply_aint_aint(void *restrict external_cache_pointer, PyObject *res
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -22165,24 +21954,20 @@ int cmlq_multiply_afloat_afloat(void *restrict external_cache_pointer, PyObject 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -22549,24 +22334,20 @@ int cmlq_multiply_adouble_adouble(void *restrict external_cache_pointer, PyObjec
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -22927,8 +22708,7 @@ int cmlq_square_aint(void *restrict external_cache_pointer, PyObject *restrict *
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -23273,8 +23053,7 @@ int cmlq_square_adouble(void *restrict external_cache_pointer, PyObject *restric
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -23619,8 +23398,7 @@ int cmlq_square_afloat(void *restrict external_cache_pointer, PyObject *restrict
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -23965,8 +23743,7 @@ int cmlq_sqrt_adouble(void *restrict external_cache_pointer, PyObject *restrict 
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -24311,8 +24088,7 @@ int cmlq_sqrt_afloat(void *restrict external_cache_pointer, PyObject *restrict *
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -24657,8 +24433,7 @@ int cmlq_absolute_aint(void *restrict external_cache_pointer, PyObject *restrict
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -25003,8 +24778,7 @@ int cmlq_absolute_adouble(void *restrict external_cache_pointer, PyObject *restr
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -25349,8 +25123,7 @@ int cmlq_absolute_afloat(void *restrict external_cache_pointer, PyObject *restri
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -25695,8 +25468,7 @@ int cmlq_reciprocal_afloat(void *restrict external_cache_pointer, PyObject *rest
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -26041,8 +25813,7 @@ int cmlq_reciprocal_adouble(void *restrict external_cache_pointer, PyObject *res
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -26387,8 +26158,7 @@ int cmlq_reciprocal_aint(void *restrict external_cache_pointer, PyObject *restri
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -26733,8 +26503,7 @@ int cmlq_tanh_afloat(void *restrict external_cache_pointer, PyObject *restrict *
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -27079,8 +26848,7 @@ int cmlq_tanh_adouble(void *restrict external_cache_pointer, PyObject *restrict 
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -27425,8 +27193,7 @@ int cmlq_exp_afloat(void *restrict external_cache_pointer, PyObject *restrict **
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -27771,8 +27538,7 @@ int cmlq_exp_adouble(void *restrict external_cache_pointer, PyObject *restrict *
 {
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
-PyObject *m1 = (*stack_pointer_ptr)[-1];
-
+PyObject *m1 = (*stack_pointer_ptr)[-3];
     if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
         goto deopt;
@@ -28115,7 +27881,6 @@ fail:
 
 int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
 {
-    fprintf(stderr,"%s\n","int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)");
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
     PyObject *m1 = (*stack_pointer_ptr)[-4];
@@ -28124,24 +27889,20 @@ int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restr
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -28281,6 +28042,7 @@ int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restr
         if (PyArray_NDIM(lhs) == 1) {
             fixed_strides[0] = PyArray_STRIDES(lhs)[0];
             fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+            fixed_strides[2] = PyArray_STRIDES(out)[0];
         } else {
             if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
                 !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
@@ -28288,21 +28050,18 @@ int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restr
             } else {
                 fixed_strides[0] = PyArray_ITEMSIZE(lhs);
                 fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+                fixed_strides[2] = PyArray_ITEMSIZE(out);
             }
         }
     }
 
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
+
     if(fast_path == 1) {
 
-                // there was no temp elision so we need to create a new array
-                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_INT);
-
-                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
-                result = (PyArrayObject *)PyArray_NewFromDescr(
-                        &PyArray_Type, result_descr, result_ndims,
-                        result_shape, NULL, NULL,
-                        0, NULL);
-                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+        assert(out == result);
 
         npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
 
@@ -28321,17 +28080,11 @@ int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restr
 
         NPY_END_THREADS;
 
-            if (PyArray_NBYTES(result) >= 4096) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
 
-                cache_miss(elem);
-                elem->state = DISABLED;
-            }
-
-        if (elem->state != DISABLED && result != lhs) {
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->result = result;
-                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
-                Py_INCREF(elem->result);
+                elem->result = NULL;
 
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
@@ -28375,7 +28128,7 @@ int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restr
 
         /* Set the output array as output (the iterator might have created an array) */
         PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
-        result = op_it[2];
+        result = out;
 
         // the result will be pushed to the stack
         Py_INCREF(result);
@@ -28427,17 +28180,12 @@ int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restr
 
         NPY_END_THREADS;
 
+        // no locality cache, we always need to deallocate the iterator
         int should_deallocate = 0;
-
-        if (PyArray_NBYTES(result) >= 4096) {
-
-            cache_miss(elem);
-            elem->state = DISABLED;
-        }
-
-        if (elem->state != DISABLED && result != lhs) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->state = ITERATOR;
+                 elem->state = ITERATOR;
 
                 elem->iterator.countptr = countptr;
                 elem->iterator.dataptr = dataptr;
@@ -28490,7 +28238,6 @@ fprintf(stderr, "success\n");
     return 0;
 
 fail:
-fprintf(stderr, "fail\n");
     return -1;
 }
 
@@ -28498,7 +28245,6 @@ fprintf(stderr, "fail\n");
 
 int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
 {
-    fprintf(stderr,"%s\n","int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)");
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
     PyObject *m1 = (*stack_pointer_ptr)[-4];
@@ -28507,24 +28253,20 @@ int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *r
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_FLOAT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -28664,6 +28406,7 @@ int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *r
         if (PyArray_NDIM(lhs) == 1) {
             fixed_strides[0] = PyArray_STRIDES(lhs)[0];
             fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+            fixed_strides[2] = PyArray_STRIDES(out)[0];
         } else {
             if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
                 !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
@@ -28671,21 +28414,18 @@ int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *r
             } else {
                 fixed_strides[0] = PyArray_ITEMSIZE(lhs);
                 fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+                fixed_strides[2] = PyArray_ITEMSIZE(out);
             }
         }
     }
 
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
+
     if(fast_path == 1) {
 
-                // there was no temp elision so we need to create a new array
-                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_FLOAT);
-
-                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
-                result = (PyArrayObject *)PyArray_NewFromDescr(
-                        &PyArray_Type, result_descr, result_ndims,
-                        result_shape, NULL, NULL,
-                        0, NULL);
-                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+        assert(out == result);
 
         npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
 
@@ -28704,17 +28444,11 @@ int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *r
 
         NPY_END_THREADS;
 
-            if (PyArray_NBYTES(result) >= 4096) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
 
-                cache_miss(elem);
-                elem->state = DISABLED;
-            }
-
-        if (elem->state != DISABLED && result != lhs) {
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->result = result;
-                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
-                Py_INCREF(elem->result);
+                elem->result = NULL;
 
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
@@ -28758,7 +28492,7 @@ int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *r
 
         /* Set the output array as output (the iterator might have created an array) */
         PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
-        result = op_it[2];
+        result = out;
 
         // the result will be pushed to the stack
         Py_INCREF(result);
@@ -28810,17 +28544,12 @@ int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *r
 
         NPY_END_THREADS;
 
+        // no locality cache, we always need to deallocate the iterator
         int should_deallocate = 0;
-
-        if (PyArray_NBYTES(result) >= 4096) {
-
-            cache_miss(elem);
-            elem->state = DISABLED;
-        }
-
-        if (elem->state != DISABLED && result != lhs) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->state = ITERATOR;
+                 elem->state = ITERATOR;
 
                 elem->iterator.countptr = countptr;
                 elem->iterator.dataptr = dataptr;
@@ -28873,7 +28602,6 @@ fprintf(stderr, "success\n");
     return 0;
 
 fail:
-fprintf(stderr, "fail\n");
     return -1;
 }
 
@@ -28881,7 +28609,6 @@ fprintf(stderr, "fail\n");
 
 int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
 {
-    fprintf(stderr,"%s\n","int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)");
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
     PyObject *m1 = (*stack_pointer_ptr)[-4];
@@ -28890,24 +28617,20 @@ int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -29047,6 +28770,7 @@ int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject 
         if (PyArray_NDIM(lhs) == 1) {
             fixed_strides[0] = PyArray_STRIDES(lhs)[0];
             fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+            fixed_strides[2] = PyArray_STRIDES(out)[0];
         } else {
             if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
                 !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
@@ -29054,21 +28778,18 @@ int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject 
             } else {
                 fixed_strides[0] = PyArray_ITEMSIZE(lhs);
                 fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+                fixed_strides[2] = PyArray_ITEMSIZE(out);
             }
         }
     }
 
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
+
     if(fast_path == 1) {
 
-                // there was no temp elision so we need to create a new array
-                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_DOUBLE);
-
-                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
-                result = (PyArrayObject *)PyArray_NewFromDescr(
-                        &PyArray_Type, result_descr, result_ndims,
-                        result_shape, NULL, NULL,
-                        0, NULL);
-                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+        assert(out == result);
 
         npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
 
@@ -29087,17 +28808,11 @@ int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject 
 
         NPY_END_THREADS;
 
-            if (PyArray_NBYTES(result) >= 4096) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
 
-                cache_miss(elem);
-                elem->state = DISABLED;
-            }
-
-        if (elem->state != DISABLED && result != lhs) {
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->result = result;
-                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
-                Py_INCREF(elem->result);
+                elem->result = NULL;
 
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
@@ -29141,7 +28856,7 @@ int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject 
 
         /* Set the output array as output (the iterator might have created an array) */
         PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
-        result = op_it[2];
+        result = out;
 
         // the result will be pushed to the stack
         Py_INCREF(result);
@@ -29193,17 +28908,12 @@ int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject 
 
         NPY_END_THREADS;
 
+        // no locality cache, we always need to deallocate the iterator
         int should_deallocate = 0;
-
-        if (PyArray_NBYTES(result) >= 4096) {
-
-            cache_miss(elem);
-            elem->state = DISABLED;
-        }
-
-        if (elem->state != DISABLED && result != lhs) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->state = ITERATOR;
+                 elem->state = ITERATOR;
 
                 elem->iterator.countptr = countptr;
                 elem->iterator.dataptr = dataptr;
@@ -29256,7 +28966,6 @@ fprintf(stderr, "success\n");
     return 0;
 
 fail:
-fprintf(stderr, "fail\n");
     return -1;
 }
 
@@ -29264,7 +28973,6 @@ fprintf(stderr, "fail\n");
 
 int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
 {
-    fprintf(stderr,"%s\n","int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)");
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
     PyObject *m1 = (*stack_pointer_ptr)[-4];
@@ -29273,24 +28981,20 @@ int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_INT)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -29430,6 +29134,7 @@ int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *
         if (PyArray_NDIM(lhs) == 1) {
             fixed_strides[0] = PyArray_STRIDES(lhs)[0];
             fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+            fixed_strides[2] = PyArray_STRIDES(out)[0];
         } else {
             if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
                 !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
@@ -29437,21 +29142,18 @@ int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *
             } else {
                 fixed_strides[0] = PyArray_ITEMSIZE(lhs);
                 fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+                fixed_strides[2] = PyArray_ITEMSIZE(out);
             }
         }
     }
 
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
+
     if(fast_path == 1) {
 
-                // there was no temp elision so we need to create a new array
-                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_INT);
-
-                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
-                result = (PyArrayObject *)PyArray_NewFromDescr(
-                        &PyArray_Type, result_descr, result_ndims,
-                        result_shape, NULL, NULL,
-                        0, NULL);
-                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+        assert(out == result);
 
         npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
 
@@ -29470,17 +29172,11 @@ int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *
 
         NPY_END_THREADS;
 
-            if (PyArray_NBYTES(result) >= 4096) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
 
-                cache_miss(elem);
-                elem->state = DISABLED;
-            }
-
-        if (elem->state != DISABLED && result != lhs) {
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->result = result;
-                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
-                Py_INCREF(elem->result);
+                elem->result = NULL;
 
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
@@ -29524,7 +29220,7 @@ int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *
 
         /* Set the output array as output (the iterator might have created an array) */
         PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
-        result = op_it[2];
+        result = out;
 
         // the result will be pushed to the stack
         Py_INCREF(result);
@@ -29576,17 +29272,12 @@ int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *
 
         NPY_END_THREADS;
 
+        // no locality cache, we always need to deallocate the iterator
         int should_deallocate = 0;
-
-        if (PyArray_NBYTES(result) >= 4096) {
-
-            cache_miss(elem);
-            elem->state = DISABLED;
-        }
-
-        if (elem->state != DISABLED && result != lhs) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->state = ITERATOR;
+                 elem->state = ITERATOR;
 
                 elem->iterator.countptr = countptr;
                 elem->iterator.dataptr = dataptr;
@@ -29639,40 +29330,40 @@ fprintf(stderr, "success\n");
     return 0;
 
 fail:
-fprintf(stderr, "fail\n");
     return -1;
 }
 
 
 
-int cmlq_multiply_sdouble_adouble_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+int cmlq_multiply_adouble_sdouble_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
 {
-    fprintf(stderr,"%s\n","int cmlq_multiply_sdouble_adouble_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)");
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
     PyObject *m1 = (*stack_pointer_ptr)[-4];
     PyObject *m2 = (*stack_pointer_ptr)[-3];
+    if (PyFloat_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
 
-        if (NPY_UNLIKELY(!PyFloat_CheckExact(m1))) {
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
-            fprintf(stderr, "left_type_misses1\n");
             goto deopt;
         }
-        PyArray_Descr *left_descr = NULL;
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-        PyArrayObject *lhs = (PyArrayObject *)PyArray_FromAny(m1, left_descr, 0, 0, 0, NULL);
-
-        if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
-
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
-        PyArrayObject *rhs = (PyArrayObject *)m2;
-        if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
+        if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
+
             goto deopt;
         }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
 
     // No need to check for ufunc overrides as we check for ndarray exact type
     // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
@@ -29681,8 +29372,8 @@ int cmlq_multiply_sdouble_adouble_kw(void *restrict external_cache_pointer, PyOb
     PyArrayObject *result = NULL;
 
     // the non-scalar side determines the result shape
-    npy_intp result_ndims = PyArray_NDIM(rhs);
-    npy_intp *result_shape = PyArray_SHAPE(rhs);
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
 
     //kwnames key1 arg1 arg2 self_or_null callable
 
@@ -29803,29 +29494,26 @@ int cmlq_multiply_sdouble_adouble_kw(void *restrict external_cache_pointer, PyOb
     npy_intp fixed_strides[3];
     int fast_path = 1;
 
-    if (PyArray_NDIM(rhs) == 1) {
-        fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
     } else {
-        if (!(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
             fast_path = 2;
         } else {
-            fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
         }
     }
 
-    fixed_strides[0] = 0;
+    fixed_strides[1] = 0;
+        fixed_strides[2] = PyArray_ITEMSIZE(out);
+
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
 
     if(fast_path == 1) {
 
-                // there was no temp elision so we need to create a new array
-                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_DOUBLE);
-
-                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
-                result = (PyArrayObject *)PyArray_NewFromDescr(
-                        &PyArray_Type, result_descr, result_ndims,
-                        result_shape, NULL, NULL,
-                        0, NULL);
-                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+        assert(out == result);
 
         npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
 
@@ -29844,17 +29532,11 @@ int cmlq_multiply_sdouble_adouble_kw(void *restrict external_cache_pointer, PyOb
 
         NPY_END_THREADS;
 
-            if (PyArray_NBYTES(result) >= 4096) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
 
-                cache_miss(elem);
-                elem->state = DISABLED;
-            }
-
-        if (elem->state != DISABLED && result != lhs) {
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->result = result;
-                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
-                Py_INCREF(elem->result);
+                elem->result = NULL;
 
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
@@ -29898,7 +29580,7 @@ int cmlq_multiply_sdouble_adouble_kw(void *restrict external_cache_pointer, PyOb
 
         /* Set the output array as output (the iterator might have created an array) */
         PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
-        result = op_it[2];
+        result = out;
 
         // the result will be pushed to the stack
         Py_INCREF(result);
@@ -29950,17 +29632,12 @@ int cmlq_multiply_sdouble_adouble_kw(void *restrict external_cache_pointer, PyOb
 
         NPY_END_THREADS;
 
+        // no locality cache, we always need to deallocate the iterator
         int should_deallocate = 0;
-
-        if (PyArray_NBYTES(result) >= 4096) {
-
-            cache_miss(elem);
-            elem->state = DISABLED;
-        }
-
-        if (elem->state != DISABLED && result != lhs) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->state = ITERATOR;
+                 elem->state = ITERATOR;
 
                 elem->iterator.countptr = countptr;
                 elem->iterator.dataptr = dataptr;
@@ -30013,7 +29690,6 @@ fprintf(stderr, "success\n");
     return 0;
 
 fail:
-fprintf(stderr, "fail\n");
     return -1;
 }
 
@@ -30021,7 +29697,6 @@ fprintf(stderr, "fail\n");
 
 int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
 {
-    fprintf(stderr,"%s\n","int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)");
         CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
 
     PyObject *m1 = (*stack_pointer_ptr)[-4];
@@ -30030,24 +29705,20 @@ int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyOb
         if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
 
             goto deopt;
-            fprintf(stderr, "left_type_misses2\n");
         }
         PyArrayObject *lhs = (PyArrayObject *)m1;
         if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "left_type_misses3\n");
             goto deopt;
         }
 
         if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
 
-            fprintf(stderr, "right_type_misses2\n");
             goto deopt;
         }
         PyArrayObject *rhs = (PyArrayObject *)m2;
         if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_DOUBLE)) {
 
-            fprintf(stderr, "right_type_misses3\n");
             goto deopt;
         }
 
@@ -30187,6 +29858,7 @@ int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyOb
         if (PyArray_NDIM(lhs) == 1) {
             fixed_strides[0] = PyArray_STRIDES(lhs)[0];
             fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+            fixed_strides[2] = PyArray_STRIDES(out)[0];
         } else {
             if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
                 !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
@@ -30194,21 +29866,18 @@ int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyOb
             } else {
                 fixed_strides[0] = PyArray_ITEMSIZE(lhs);
                 fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+                fixed_strides[2] = PyArray_ITEMSIZE(out);
             }
         }
     }
 
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
+
     if(fast_path == 1) {
 
-                // there was no temp elision so we need to create a new array
-                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_DOUBLE);
-
-                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
-                result = (PyArrayObject *)PyArray_NewFromDescr(
-                        &PyArray_Type, result_descr, result_ndims,
-                        result_shape, NULL, NULL,
-                        0, NULL);
-                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+        assert(out == result);
 
         npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
 
@@ -30227,17 +29896,11 @@ int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyOb
 
         NPY_END_THREADS;
 
-            if (PyArray_NBYTES(result) >= 4096) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
 
-                cache_miss(elem);
-                elem->state = DISABLED;
-            }
-
-        if (elem->state != DISABLED && result != lhs) {
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->result = result;
-                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
-                Py_INCREF(elem->result);
+                elem->result = NULL;
 
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
@@ -30281,7 +29944,7 @@ int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyOb
 
         /* Set the output array as output (the iterator might have created an array) */
         PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
-        result = op_it[2];
+        result = out;
 
         // the result will be pushed to the stack
         Py_INCREF(result);
@@ -30333,17 +29996,12 @@ int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyOb
 
         NPY_END_THREADS;
 
+        // no locality cache, we always need to deallocate the iterator
         int should_deallocate = 0;
-
-        if (PyArray_NBYTES(result) >= 4096) {
-
-            cache_miss(elem);
-            elem->state = DISABLED;
-        }
-
-        if (elem->state != DISABLED && result != lhs) {
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
             if (CMLQCounter_triggered(elem->counter)) {
-                elem->state = ITERATOR;
+                 elem->state = ITERATOR;
 
                 elem->iterator.countptr = countptr;
                 elem->iterator.dataptr = dataptr;
@@ -30396,7 +30054,331 @@ fprintf(stderr, "success\n");
     return 0;
 
 fail:
-fprintf(stderr, "fail\n");
     return -1;
 }
 
+
+
+int cmlq_sqrt_adouble_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+PyObject *m1 = (*stack_pointer_ptr)[-3];
+    if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+        goto deopt;
+    }
+    PyArrayObject *lhs = (PyArrayObject *)m1;
+    if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
+
+        goto deopt;
+    }
+
+PyArrayObject *ops[] = {lhs, NULL};
+PyArrayObject *result = NULL;
+
+npy_intp result_ndims = PyArray_NDIM(lhs);
+npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    PyObject *callable = (*stack_pointer_ptr)[-5];
+    PyUFuncObject *ufunc = (PyUFuncObject *)callable;
+
+    PyObject *out = (*stack_pointer_ptr)[-2];
+
+    if (NPY_UNLIKELY(!ufunc->specializable)) {
+
+        // ufunc has user loops or is generalized
+        goto deopt;
+    }
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+            result = out;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[2];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            DOUBLE_sqrt(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+            result = out;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[2];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                DOUBLE_sqrt(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[2];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
+
+    if(fast_path == 1) {
+
+        assert(out == result);
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[2];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        DOUBLE_sqrt(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", DOUBLE_sqrt(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+
+        if (elem->state != DISABLED ) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = NULL;
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_DOUBLE);
+
+        PyArray_Descr *descriptors[2] = {PyArray_DESCR(lhs), result_descr};
+        npy_uint32 op_flags[2] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[1] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(2, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = out;
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[2];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            DOUBLE_sqrt(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", DOUBLE_sqrt(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                 elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(callable);
+
+    // skip the arguments and the NULL on the stack
+    *stack_pointer_ptr -= 4;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    return 0;
+
+fail:
+    return -1;
+}
