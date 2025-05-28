@@ -5169,7 +5169,14 @@ collect_base_info(instr);
         }
         case CALL_KW:{
             PyObject *callable = STACK_ELEMENT(-(3 + instr->op.arg));
+
             PyObject *kwnames = STACK_ELEMENT(-1);
+#ifdef NPY_COLLECT_BYTECODE
+            collect_callkw_info(instr, *stack_pointer, callable, kwnames);
+#endif
+            if (Py_TYPE(callable) != &PyUFunc_Type) {
+                return 0;
+            }
             PyObject *out = STACK_ELEMENT(-2);
             // fprintf(stderr, "kwnames:%p\n",kwnames);
             // fprintf(stderr, "out:%p\n",out);
@@ -5177,17 +5184,8 @@ collect_base_info(instr);
             // for (int i = 1; i <= 3 + instr->op.arg; i++) {
             //     fprintf(stderr, "stack[%d]:%p\n",i,STACK_ELEMENT(-i));
             // }
-#ifdef NPY_COLLECT_BYTECODE
-            collect_callkw_info(instr,*stack_pointer, callable, kwnames);
-#endif
 
-            if (Py_TYPE(callable) != &PyUFunc_Type) {
-                return 0;
-            }
-                if (kwnames == NULL) {
-                    return 0;
-                }
-                else if (!PyTuple_Check(kwnames)) {
+                if (!PyTuple_Check(kwnames)) {
                     return 0;
                 }
                 Py_ssize_t nkwargs = PyTuple_GET_SIZE(kwnames);
