@@ -5263,11 +5263,7 @@ collect_base_info(instr);
                             const char *name = ufunc_get_name_cstr(ufunc);
                             // fprintf(stderr, "namela:%s\n", name);
 
-                            //                             else if
-                            //                             (strcmp(name, "add")
-                            //                             == 0) {
-                            // #include "cmlq_add_l_kw.h"
-                            //                             }
+
                             //                             else if
                             //                             (strcmp(name,
                             //                             "subtract") == 0) {
@@ -5276,34 +5272,26 @@ collect_base_info(instr);
                             if(strcmp(name,"multiply") == 0) {
 #include "cmlq_multiply_l_kw.h"
                                                         }
-                            return 0;
+                            else if(strcmp(name, "add")== 0) {
+#include"cmlq_add_l_kw.h"
+                                                        }
+                            else if(strcmp(name, "divide")== 0) {
+#include"cmlq_divide_l_kw.h"
+                                                        }                                   
+                                                        return 0;
                         }
                         else if (PyArray_CheckExact(rhs)) {
                              const char *name = ufunc_get_name_cstr(ufunc);
                             //  fprintf(stderr, "namear:%s\n", name);
-                             //                             const char *name =
-                             //                             ufunc_get_name_cstr(ufunc);
-                             //                             if (strcmp(name,
-                             //                             "minimum") == 0) {
-                             // #include "cmlq_minimum_r_kw.h"
-                             //                             }
-                             //                             else if
-                             //                             (strcmp(name,
-                             //                             "maximum") == 0) {
-                             // #include "cmlq_maximum_r_kw.h"
-                             //                             }
-                             //                             else if
-                             //                             (strcmp(name,
-                             //                             "add")
-                             //                             == 0) {
-                             // #include "cmlq_add_r_kw.h"
-                             //                             }
+if(strcmp(name,"add")== 0) {
+                             #include "cmlq_add_r_kw.h"
+                            }
                              //                             else if
                              //                             (strcmp(name,
                              //                             "subtract") == 0) {
                              // #include "cmlq_subtract_r_kw.h"
                              //                             }
-                             if (strcmp(name, "multiply") == 0) {
+                             else if (strcmp(name, "multiply") == 0) {
 #include "cmlq_multiply_r_kw.h"
                                                         }
                             return 0;

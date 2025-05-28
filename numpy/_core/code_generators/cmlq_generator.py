@@ -1001,6 +1001,22 @@ def build_derivatives(flatten, cache_stats):
         FunctionBinOpKw(
             operation="add",
             left_type="afloat",
+            right_type="slong",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_add",
+            impl_template="function_binop_kw.mako",
+        ),
+        FunctionBinOpKw(
+            operation="true_divide",
+            left_type="adouble",
+            right_type="slong",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_divide",
+            impl_template="function_binop_kw.mako",
+        ),
+        FunctionBinOpKw(
+            operation="add",
+            left_type="afloat",
             right_type="afloat",
             result_type="NPY_FLOAT",
             loop_function="FLOAT_add",

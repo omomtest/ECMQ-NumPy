@@ -1256,6 +1256,14 @@ cmlq_sqrt_kw=custom_target(
   input:'code_generators/cmlq_generator.py',
   command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','sqrt']
 )
+cmlq_divide_l_kw=custom_target(
+  'cmlq-dividekw-l',
+  build_always_stale:true,
+  build_by_default:true,
+  output:'cmlq_divide_l_kw.h',
+  input:'code_generators/cmlq_generator.py',
+  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','divide','--template','binop_case_guards_l']
+)
 cmlq_subtract_a=custom_target(
   'cmlq-subtract-a',
   build_always_stale:true,
