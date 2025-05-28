@@ -1460,6 +1460,7 @@ src_multiarray = multiarray_gen_headers + [
   cmlq_add_a_kw,
   cmlq_add_l_kw,
   cmlq_add_r_kw,
+  cmlq_divide_l_kw,
   cmlq_multiply_r_kw, 
   cmlq_multiply_l_kw,
   cmlq_multiply_a_kw,
