@@ -94,7 +94,19 @@ NPY_NO_EXPORT int NPY_NUMUSERTYPES = 0;
  */
 /* __ufunc_api.c define is the PyUFunc_API table: */
 #include "__ufunc_api.c"
-
+static PyObject *ufunc_sqrt_obj = NULL;
+static PyObject *ufunc_add_obj = NULL;
+static PyObject *ufunc_multiply_obj = NULL;
+static PyObject *ufunc_divide_obj = NULL;
+static PyObject *ufunc_subtract_obj = NULL;
+static PyObject *ufunc_square_obj = NULL;
+static PyObject *ufunc_absolute_obj = NULL;
+static PyObject *ufunc_minimum_obj = NULL;
+static PyObject *ufunc_less_equal_obj = NULL;
+static PyObject *ufunc_logical_and_obj = NULL;
+static PyObject *ufunc_logical_not_obj = NULL;
+static PyObject *ufunc_arctan2_obj = NULL;
+static PyObject *ufunc_maximum_obj = NULL;
 NPY_NO_EXPORT int
 initscalarmath(PyObject *);
 NPY_NO_EXPORT int
@@ -103,7 +115,6 @@ set_matmul_flags(PyObject *d); /* in ufunc_object.c */
 NPY_NO_EXPORT PyObject *
 _umath_strings_richcompare(PyArrayObject *self, PyArrayObject *other,
                            int cmp_op, int rstrip);
-
 NPY_NO_EXPORT int
 get_legacy_print_mode(void)
 {
@@ -4897,8 +4908,7 @@ collect_base_info(instr);
                 if (PyTuple_CheckExact(subscript)) {
                     if (is_constant_tuple_subscript(instr - 1)) {
                         int index_type = mapping_cache_index_preparation(
-                                &subscript_cache[next_subscript_cache_index +
-                                                 1],
+                                &subscript_cache[next_subscript_cache_index +1],
                                 (PyArrayObject *)array, subscript);
 
                         if (index_type == HAS_INTEGER) {
@@ -5007,7 +5017,7 @@ collect_base_info(instr);
             collect_call_info(instr,*stack_pointer, callable);
 #endif
             if (Py_TYPE(callable) == &PyUFunc_Type) {
-                PyUFuncObject *ufunc = (PyUFuncObject *)callable;
+                // PyUFuncObject *ufunc = (PyUFuncObject *)callable;
                 // TODO: this is inefficient and might even be wrong in
                 // some cases, but works for now. We should rather
                 // check for equivalence with the objects created in
@@ -5020,16 +5030,17 @@ collect_base_info(instr);
                         if (!PyArray_CheckExact(lhs)) {
                             return 0;
                         }
-                        const char *name = ufunc_get_name_cstr(ufunc);
+                        // const char *name = ufunc_get_name_cstr(ufunc);
                         // fprintf(stderr, "nameoneop:%s\n", name);
 
-                        if (strcmp(name, "square") == 0) {
+                        if (callable == ufunc_square_obj) {
 #include "cmlq_square.h"
                         }
-                        else if (strcmp(name, "sqrt") == 0) {
+                        else if (callable == ufunc_sqrt_obj) 
+                            {
 #include "cmlq_sqrt.h"
-                        }
-                        else if (strcmp(name, "absolute") == 0) {
+                            }
+                        else if (callable == ufunc_absolute_obj) {
 #include "cmlq_absolute.h"
                         }
                         // else if (strcmp(name, "reciprocal") == 0) {
@@ -5050,21 +5061,21 @@ collect_base_info(instr);
                         PyObject *lhs = STACK_ELEMENT(-2);
                         if (PyArray_CheckExact(lhs) &&
                             PyArray_CheckExact(rhs)) {
-                            const char *name = ufunc_get_name_cstr(ufunc);
+                            // const char *name = ufunc_get_name_cstr(ufunc);
                             // fprintf(stderr, "nameaa:%s\n", name);
-                            if (strcmp(name, "minimum") == 0) {
+                            if (callable == ufunc_minimum_obj) {
 #include "cmlq_minimum_a.h"
                             }
-                            else if (strcmp(name, "less_equal") == 0) {
+                            else if (callable == ufunc_less_equal_obj) {
 #include "cmlq_less_equal_a.h"
                             }
-                            else if (strcmp(name, "logical_and") == 0) {
+                            else if (callable == ufunc_logical_and_obj) {
 #include "cmlq_logical_and_a.h"
                             }
-                            else if (strcmp(name, "logical_not") == 0) {
+                            else if (callable == ufunc_logical_not_obj) {
 #include "cmlq_logical_not_a.h"
                             }
-                            else if (strcmp(name, "arctan2") == 0) {
+                            else if (callable == ufunc_arctan2_obj) {
 #include "cmlq_arctan2_a.h"
                             }
                             //                             else if
@@ -5096,13 +5107,13 @@ collect_base_info(instr);
                             return 0;
                         }
                         else if (PyArray_CheckExact(lhs)) {
-                            const char *name = ufunc_get_name_cstr(ufunc);
+                            // const char *name = ufunc_get_name_cstr(ufunc);
                             // fprintf(stderr, "namela:%s\n", name);
                             //                             if (strcmp(name,
                             //                             "minimum") == 0) {
                             // #include "cmlq_minimum_l.h"
                             //                             }
-                            if (strcmp(name, "maximum") == 0) {
+                            if (callable == ufunc_maximum_obj) {
 #include "cmlq_maximum_l.h"
                             }
                             //                             else if
@@ -5168,6 +5179,7 @@ collect_base_info(instr);
             break;
         }
         case CALL_KW:{
+
             PyObject *callable = STACK_ELEMENT(-(3 + instr->op.arg));
 
             PyObject *kwnames = STACK_ELEMENT(-1);
@@ -5177,14 +5189,7 @@ collect_base_info(instr);
             if (Py_TYPE(callable) != &PyUFunc_Type) {
                 return 0;
             }
-            PyObject *out = STACK_ELEMENT(-2);
-            // fprintf(stderr, "kwnames:%p\n",kwnames);
-            // fprintf(stderr, "out:%p\n",out);
-
-            // for (int i = 1; i <= 3 + instr->op.arg; i++) {
-            //     fprintf(stderr, "stack[%d]:%p\n",i,STACK_ELEMENT(-i));
-            // }
-
+           
                 if (!PyTuple_Check(kwnames)) {
                     return 0;
                 }
@@ -5194,25 +5199,21 @@ collect_base_info(instr);
                 }
                 else {
                     PyObject *key = PyTuple_GET_ITEM(kwnames, 0);
-                    if (PyUnicode_Check(key) &&
-                        PyUnicode_CompareWithASCIIString(key, "out") != 0) {
+                    if (key != npy_interned_str.out) {
                         return 0;
                     }
                 }
-    
-
-                PyUFuncObject *ufunc = (PyUFuncObject *)callable;
+                PyObject *out = STACK_ELEMENT(-2);
+                // PyUFuncObject *ufunc = (PyUFuncObject *)callable;
                 switch (instr->op.arg) {
                     case 2: {
                         PyObject *lhs = STACK_ELEMENT(-3);
                         if (!PyArray_CheckExact(lhs)) {
                             return 0;
                         }
-                        const char *name = ufunc_get_name_cstr(ufunc);
+                        // const char *name = ufunc_get_name_cstr(ufunc);
                         //fprintf(stderr, "nameoneop:%s\n", name);
-                        if (strcmp(name, "sqrt") == 0)
-                        {
-
+                        if (callable == ufunc_sqrt_obj) {
 #include "cmlq_sqrt_kw.h"
                         }
 
@@ -5243,10 +5244,12 @@ collect_base_info(instr);
                         PyObject *lhs = STACK_ELEMENT(-4);
                         if (PyArray_CheckExact(lhs) &&
                             PyArray_CheckExact(rhs)) {
-                            const char *name = ufunc_get_name_cstr(ufunc);
                             //  fprintf(stderr, "nameaa:%s\n", name);
+                            // fprintf(stderr, "name:%s\n",
+                            //         ufunc_get_name_cstr(ufunc));
 
-                             if (strcmp(name, "add") == 0) {
+                                
+                            if (callable == ufunc_add_obj) {
 #include "cmlq_add_a_kw.h"
                             }
                             //                             else if
@@ -5254,13 +5257,13 @@ collect_base_info(instr);
                             //                             "subtract") == 0) {
                             // #include "cmlq_subtract_a_kw.h"
                             //                             }
-                            else if(strcmp(name,"multiply") == 0) {
+                            else if (callable == ufunc_multiply_obj) {
 #include "cmlq_multiply_a_kw.h"
-                                                        }
+                            }
                             return 0;
                         }
                         else if (PyArray_CheckExact(lhs)) {
-                            const char *name = ufunc_get_name_cstr(ufunc);
+
                             // fprintf(stderr, "namela:%s\n", name);
 
 
@@ -5269,31 +5272,31 @@ collect_base_info(instr);
                             //                             "subtract") == 0) {
                             // #include "cmlq_subtract_l_kw.h"
                             //                             }
-                            if(strcmp(name,"multiply") == 0) {
+                            if (callable == ufunc_multiply_obj) {
 #include "cmlq_multiply_l_kw.h"
-                                                        }
-                            else if(strcmp(name, "add")== 0) {
+                            }
+                            else if(callable == ufunc_add_obj) {
 #include"cmlq_add_l_kw.h"
                                                         }
-                            else if(strcmp(name, "divide")== 0) {
+                            else if(callable == ufunc_divide_obj) {
 #include"cmlq_divide_l_kw.h"
                                                         }                                   
                                                         return 0;
                         }
                         else if (PyArray_CheckExact(rhs)) {
-                             const char *name = ufunc_get_name_cstr(ufunc);
+
                             //  fprintf(stderr, "namear:%s\n", name);
-if(strcmp(name,"add")== 0) {
-                             #include "cmlq_add_r_kw.h"
+                            if (callable == ufunc_add_obj) {
+#include "cmlq_add_r_kw.h"
                             }
                              //                             else if
                              //                             (strcmp(name,
                              //                             "subtract") == 0) {
                              // #include "cmlq_subtract_r_kw.h"
                              //                             }
-                             else if (strcmp(name, "multiply") == 0) {
+                            else if (callable == ufunc_multiply_obj) {
 #include "cmlq_multiply_r_kw.h"
-                                                        }
+                                }
                             return 0;
                         }
 
@@ -5696,7 +5699,46 @@ PyInit__multiarray_umath(void)
     if (set_matmul_flags(d) < 0) {
         goto err;
     }
+    {
+        /* 从模块字典里取出 np.sqrt 对应的 ufunc 对象 */
+        ufunc_sqrt_obj = PyDict_GetItemString(d, "sqrt");
+        ufunc_add_obj = PyDict_GetItemString(d, "add");
+        ufunc_multiply_obj = PyDict_GetItemString(d, "multiply");
+        ufunc_divide_obj = PyDict_GetItemString(d, "divide");
+        ufunc_less_equal_obj = PyDict_GetItemString(d, "less_equal");
+        ufunc_logical_and_obj = PyDict_GetItemString(d, "logical_and");
+        ufunc_logical_not_obj = PyDict_GetItemString(d, "logical_not");
+        ufunc_arctan2_obj = PyDict_GetItemString(d, "arctan2");
+        ufunc_maximum_obj = PyDict_GetItemString(d, "maximum");
+        ufunc_square_obj = PyDict_GetItemString(d, "square");
+        ufunc_subtract_obj = PyDict_GetItemString(d, "subtract");
+        ufunc_absolute_obj = PyDict_GetItemString(d, "absolute");
+        ufunc_minimum_obj = PyDict_GetItemString(d, "minimum");
 
+        if(ufunc_sqrt_obj == NULL ||
+            ufunc_add_obj == NULL || ufunc_multiply_obj == NULL ||
+            ufunc_divide_obj == NULL || ufunc_less_equal_obj == NULL ||
+            ufunc_logical_and_obj == NULL || ufunc_logical_not_obj == NULL ||
+            ufunc_arctan2_obj == NULL || ufunc_maximum_obj == NULL ||
+            ufunc_square_obj == NULL || ufunc_subtract_obj == NULL ||
+            ufunc_absolute_obj == NULL||ufunc_minimum_obj == NULL) {
+            goto err;
+        }
+
+        Py_INCREF(ufunc_sqrt_obj);
+        Py_INCREF(ufunc_add_obj);
+        Py_INCREF(ufunc_multiply_obj);
+        Py_INCREF(ufunc_divide_obj);
+        Py_INCREF(ufunc_less_equal_obj);
+        Py_INCREF(ufunc_logical_and_obj);
+        Py_INCREF(ufunc_logical_not_obj);
+        Py_INCREF(ufunc_arctan2_obj);
+        Py_INCREF(ufunc_maximum_obj);
+        Py_INCREF(ufunc_square_obj);
+        Py_INCREF(ufunc_subtract_obj);
+        Py_INCREF(ufunc_absolute_obj);
+        Py_INCREF(ufunc_minimum_obj);
+    }
     // initialize static references to ndarray.__array_*__ special methods
     npy_static_pydata.ndarray_array_finalize = PyObject_GetAttrString(
             (PyObject *)&PyArray_Type, "__array_finalize__");
@@ -5805,5 +5847,18 @@ err:
         PyErr_SetString(PyExc_RuntimeError, "cannot load multiarray module.");
     }
     Py_DECREF(m);
+    Py_XDECREF(ufunc_sqrt_obj);
+    Py_XDECREF(ufunc_add_obj);
+    Py_XDECREF(ufunc_multiply_obj);
+    Py_XDECREF(ufunc_divide_obj);
+    Py_XDECREF(ufunc_less_equal_obj);
+    Py_XDECREF(ufunc_logical_and_obj);
+    Py_XDECREF(ufunc_logical_not_obj);
+    Py_XDECREF(ufunc_arctan2_obj);
+    Py_XDECREF(ufunc_maximum_obj);
+    Py_XDECREF(ufunc_subtract_obj);
+    Py_XDECREF(ufunc_minimum_obj);
+    Py_XDECREF(ufunc_square_obj);
+    Py_XDECREF(ufunc_absolute_obj);
     return NULL;
 }
