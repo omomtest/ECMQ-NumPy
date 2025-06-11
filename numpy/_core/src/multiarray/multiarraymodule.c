@@ -86,7 +86,7 @@ NPY_NO_EXPORT int NPY_NUMUSERTYPES = 0;
 
 #include "stringdtype/dtype.h"
 #include "textreading/readtext.h" /* _readtext_from_file_object */
-
+#include "ufunc_table.h"
 /*
  *****************************************************************************
  **                    INCLUDE GENERATED CODE                               **
@@ -107,56 +107,6 @@ NPY_NO_EXPORT int NPY_NUMUSERTYPES = 0;
 // static PyObject *ufunc_logical_not_obj = NULL;
 // static PyObject *ufunc_arctan2_obj = NULL;
 // static PyObject *ufunc_maximum_obj = NULL;
-
-static PyObject *ufunc_dict = NULL;
-//注册字典
-static void register_key(const char *key, int value) {
-    PyObject *py_key = PyUnicode_FromString(key);
-    PyObject *py_value = PyLong_FromLong(value);
-    PyDict_SetItem(ufunc_dict, py_key, py_value);
-    Py_DECREF(py_key);
-    Py_DECREF(py_value);
-}
-
-// 查找：返回值为 int，如果 key 不存在，返回 -1
-static int get_value(const char *key) {
-    PyObject *py_key = PyUnicode_FromString(key);
-    PyObject *py_value = PyDict_GetItemWithError(ufunc_dict, py_key);
-    Py_DECREF(py_key);
-    if (py_value == NULL) {
-        return -1;
-    }
-    return (int)PyLong_AsLong(py_value);
-}
-#define UFUNC_SQRT 0
-#define UFUNC_ADD 1
-#define UFUNC_MULTIPLY 2
-#define UFUNC_DIVIDE 3
-#define UFUNC_SUBTRACT 4
-#define UFUNC_SQUARE 5
-#define UFUNC_ABSOLUTE 6
-#define UFUNC_MINIMUM 7
-#define UFUNC_LESS_EQUAL 8
-#define UFUNC_LOGICAL_AND 9
-#define UFUNC_LOGICAL_NOT 10
-#define UFUNC_ARCTAN2 11
-#define UFUNC_MAXIMUM 12
-
-static init_ufunc_dict() {
-    register_key("sqrt", UFUNC_SQRT);
-    register_key("add", UFUNC_ADD);
-    register_key("multiply", UFUNC_MULTIPLY);
-    register_key("divide", UFUNC_DIVIDE);
-    register_key("subtract", UFUNC_SUBTRACT);
-    register_key("square", UFUNC_SQUARE);
-    register_key("absolute", UFUNC_ABSOLUTE);
-    register_key("minimum", UFUNC_MINIMUM);
-    register_key("less_equal", UFUNC_LESS_EQUAL);
-    register_key("logical_and", UFUNC_LOGICAL_AND);
-    register_key("logical_not", UFUNC_LOGICAL_NOT);
-    register_key("arctan2", UFUNC_ARCTAN2);
-    register_key("maximum", UFUNC_MAXIMUM);
-}
 
 NPY_NO_EXPORT int
 initscalarmath(PyObject *);
@@ -5703,51 +5653,7 @@ PyInit__multiarray_umath(void)
         goto err;
     }
 
-    // {
-    //     /* 从模块字典里取出 np.sqrt 对应的 ufunc 对象 */
-    //     ufunc_sqrt_obj = PyDict_GetItemString(d, "sqrt");
-    //     ufunc_add_obj = PyDict_GetItemString(d, "add");
-    //     ufunc_multiply_obj = PyDict_GetItemString(d, "multiply");
-    //     ufunc_divide_obj = PyDict_GetItemString(d, "divide");
-    //     ufunc_less_equal_obj = PyDict_GetItemString(d, "less_equal");
-    //     ufunc_logical_and_obj = PyDict_GetItemString(d, "logical_and");
-    //     ufunc_logical_not_obj = PyDict_GetItemString(d, "logical_not");
-    //     ufunc_arctan2_obj = PyDict_GetItemString(d, "arctan2");
-    //     ufunc_maximum_obj = PyDict_GetItemString(d, "maximum");
-    //     ufunc_square_obj = PyDict_GetItemString(d, "square");
-    //     ufunc_subtract_obj = PyDict_GetItemString(d, "subtract");
-    //     ufunc_absolute_obj = PyDict_GetItemString(d, "absolute");
-    //     ufunc_minimum_obj = PyDict_GetItemString(d, "minimum");
 
-    //     if(ufunc_sqrt_obj == NULL ||
-    //         ufunc_add_obj == NULL || ufunc_multiply_obj == NULL ||
-    //         ufunc_divide_obj == NULL || ufunc_less_equal_obj == NULL ||
-    //         ufunc_logical_and_obj == NULL || ufunc_logical_not_obj == NULL ||
-    //         ufunc_arctan2_obj == NULL || ufunc_maximum_obj == NULL ||
-    //         ufunc_square_obj == NULL || ufunc_subtract_obj == NULL ||
-    //         ufunc_absolute_obj == NULL||ufunc_minimum_obj == NULL) {
-    //         goto err;
-    //     }
-
-    //     Py_INCREF(ufunc_sqrt_obj);
-    //     Py_INCREF(ufunc_add_obj);
-    //     Py_INCREF(ufunc_multiply_obj);
-    //     Py_INCREF(ufunc_divide_obj);
-    //     Py_INCREF(ufunc_less_equal_obj);
-    //     Py_INCREF(ufunc_logical_and_obj);
-    //     Py_INCREF(ufunc_logical_not_obj);
-    //     Py_INCREF(ufunc_arctan2_obj);
-    //     Py_INCREF(ufunc_maximum_obj);
-    //     Py_INCREF(ufunc_square_obj);
-    //     Py_INCREF(ufunc_subtract_obj);
-    //     Py_INCREF(ufunc_absolute_obj);
-    //     Py_INCREF(ufunc_minimum_obj);
-    // }
-    ufunc_dict = PyDict_New();
-    if (ufunc_dict == NULL) {
-        goto err;
-    }
-    init_ufunc_dict();
     // initialize static references to ndarray.__array_*__ special methods
     npy_static_pydata.ndarray_array_finalize = PyObject_GetAttrString(
             (PyObject *)&PyArray_Type, "__array_finalize__");
@@ -5856,19 +5762,6 @@ err:
         PyErr_SetString(PyExc_RuntimeError, "cannot load multiarray module.");
     }
     Py_DECREF(m);
-    // Py_XDECREF(ufunc_sqrt_obj);
-    // Py_XDECREF(ufunc_add_obj);
-    // Py_XDECREF(ufunc_multiply_obj);
-    // Py_XDECREF(ufunc_divide_obj);
-    // Py_XDECREF(ufunc_less_equal_obj);
-    // Py_XDECREF(ufunc_logical_and_obj);
-    // Py_XDECREF(ufunc_logical_not_obj);
-    // Py_XDECREF(ufunc_arctan2_obj);
-    // Py_XDECREF(ufunc_maximum_obj);
-    // Py_XDECREF(ufunc_subtract_obj);
-    // Py_XDECREF(ufunc_minimum_obj);
-    // Py_XDECREF(ufunc_square_obj);
-    // Py_XDECREF(ufunc_absolute_obj);
     Py_DECREF(ufunc_dict);
     return NULL;
 }
