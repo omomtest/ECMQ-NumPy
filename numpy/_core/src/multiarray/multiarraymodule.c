@@ -5036,29 +5036,13 @@ collect_base_info(instr);
                         int call_key=get_value(name);
                         switch (call_key)
                         {
-                        case UFUNC_SQUARE:
-#include "cmlq_square.h"
-                            break;
-                        case UFUNC_SQRT:
-#include "cmlq_sqrt.h"
-                            break;
-                        case UFUNC_ABSOLUTE:
-#include "cmlq_absolute.h"
-                            break;
-                        default:
-                            break;
+#include "cmlq_one_func.h"
+                            default:{
+                                return 0;
+                            }
+                            
                         }
-                        // else if (strcmp(name, "reciprocal") == 0) {
-                        // #include "cmlq_reciprocal.h"
-                        //                         }
-                        //                         else if (strcmp(name,
-                        //                         "exp") == 0) {
-                        // #include "cmlq_exp.h"
-                        //                         }
-                        //                         else if (strcmp(name,
-                        //                         "tanh") == 0) {
-                        // #include "cmlq_tanh.h"
-                        //                         }
+            
                        return 0;
                     }
                     case 2: {
@@ -5070,23 +5054,11 @@ collect_base_info(instr);
                             int call_key=get_value(name);
                             switch (call_key)
                             {
-                            case UFUNC_MINIMUM:
-#include "cmlq_minimum_a.h"
-                                break;
-                            case UFUNC_LESS_EQUAL:
-#include "cmlq_less_equal_a.h"
-                                break;
-                            case UFUNC_LOGICAL_AND:
-#include "cmlq_logical_and_a.h"
-                                break;
-                            case UFUNC_LOGICAL_NOT:
-#include "cmlq_logical_not_a.h"
-                                break;
-                            case UFUNC_ARCTAN2:
-#include "cmlq_arctan2_a.h"                        
-                                break;
-                            default:
-                                break;
+#include "cmlq_bin_func_a.h"
+                                default: {
+                                    return 0;
+                                }
+                               
                             }
 
                             return 0;
@@ -5098,9 +5070,7 @@ collect_base_info(instr);
 
                             switch (call_key)
                             {
-                                case UFUNC_MAXIMUM:
-#include "cmlq_maximum_l.h"
-                                    break;
+#include "cmlq_bin_func_l.h"
                                 default:
                                     break;
                             }
@@ -5124,7 +5094,6 @@ collect_base_info(instr);
             break;
         }
         case CALL_KW:{
-            return 0;
             PyObject *callable = STACK_ELEMENT(-(3 + instr->op.arg));
 
             PyObject *kwnames = STACK_ELEMENT(-1);
@@ -5160,38 +5129,11 @@ collect_base_info(instr);
                         int ufunc_key=get_value(name);
                         switch (ufunc_key)
                         {
-                        case UFUNC_SQRT:
-#include "cmlq_sqrt_kw.h"
-                            break;
-                        default:
-                            break;
+#include "cmlq_one_func_kw.h"
+                            default:{
+                                return 0;
+                            }
                         }
-                        //fprintf(stderr, "nameoneop:%s\n", name);
-
-//                         if (callable == ufunc_sqrt_obj) {
-// #include "cmlq_sqrt_kw.h"
-//                         }
-
-                        //                         else if (strcmp(name, "square")
-                        //                         == 0) {
-                        // #include "cmlq_square_kw.h"
-                        //                         }
-
-                        //                         else if (strcmp(name,
-                        //                         "absolute") == 0) {
-                        // #include "cmlq_absolute_kw.h"
-                        //                         }
-                        // else if (strcmp(name, "reciprocal") == 0) {
-                        // #include "cmlq_reciprocal_kw.h"
-                        //                         }
-                        //                         else if (strcmp(name,
-                        //                         "exp") == 0) {
-                        // #include "cmlq_exp_kw.h"
-                        //                         }
-                        //                         else if (strcmp(name,
-                        //                         "tanh") == 0) {
-                        // #include "cmlq_tanh_kw.h"
-                        //                         }
                         break;
                     }
                     case 3: {
@@ -5204,14 +5146,10 @@ collect_base_info(instr);
                             int ufunc_key=get_value(name);
                             switch (ufunc_key)
                             {
-                            case UFUNC_ADD:
-#include "cmlq_add_a_kw.h"
-                                break;
-                            case UFUNC_MULTIPLY:
-#include "cmlq_multiply_a_kw.h"
-                                break;
-                            default:
-                                break;
+#include"cmlq_bin_func_kw_a.h"
+                                default:{
+                                    return 0;
+                                }
                             }
                             return 0;
                         }
@@ -5221,17 +5159,10 @@ collect_base_info(instr);
                             int ufunc_key = get_value(name);
                             switch (ufunc_key)
                             {
-                            case UFUNC_MULTIPLY :
-#include "cmlq_multiply_l_kw.h"
-                                break;  
-                            case UFUNC_ADD:
-#include "cmlq_add_l_kw.h"
-                                break;
-                            case UFUNC_DIVIDE:
-#include "cmlq_divide_l_kw.h"
-                                break;
-                            default:
-                                break;
+#include "cmlq_bin_func_kw_l.h"
+                                default:{
+                                    return 0;
+                                }
                             }                                
                              return 0;
                         }
@@ -5240,17 +5171,12 @@ collect_base_info(instr);
                             int ufunc_key = get_value(name);
                             switch (ufunc_key)
                             {
-                            case UFUNC_ADD:
-#include "cmlq_add_r_kw.h"
-                                break;
-                                case UFUNC_MULTIPLY:
-#include "cmlq_multiply_r_kw.h"
-                                break;
-                            default:
+#include"cmlq_bin_func_kw_r.h"
+                            default:{
+                                return 0;
+                            }
                                 break;
                             }
-
-                            return 0;
                         }
 
                         break;
@@ -5762,6 +5688,5 @@ err:
         PyErr_SetString(PyExc_RuntimeError, "cannot load multiarray module.");
     }
     Py_DECREF(m);
-    Py_DECREF(ufunc_dict);
     return NULL;
 }

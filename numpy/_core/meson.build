@@ -1120,277 +1120,77 @@ args = [py, '@INPUT@', '--outfile', '@OUTPUT@']
    input: 'code_generators/cmlq_generator.py',
    command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--binop-case-guards','--template','binop_case_guards_r'],
  )
-cmlq_min_a = custom_target(
-  'cmlq-min-a',
+cmlq_one_func=custom_target(
+  'cmlq-one-func',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_minimum_a.h',
+  output: 'cmlq_one_func.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','minimum','--template','binop_case_guards_a'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--oneop'],
 )
-cmlq_min_l = custom_target(
-  'cmlq-min-l',
+cmlq_bin_func_a=custom_target(
+  'cmlq-bin-func-a',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_minimum_l.h',
+  output: 'cmlq_bin_func_a.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','minimum','--template','binop_case_guards_l'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func','--template','binop_case_guards_a'],
 )
-cmlq_min_r = custom_target(
-  'cmlq-min-r',
+cmlq_bin_func_l=custom_target(
+  'cmlq-bin-func-l',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_minimum_r.h',
+  output: 'cmlq_bin_func_l.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','minimum','--template','binop_case_guards_r'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func','--template','binop_case_guards_l'],
 )
-cmlq_max_a = custom_target(
-  'cmlq-max-a',
+cmlq_bin_func_r=custom_target(
+  'cmlq-bin-func-r',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_maximum_a.h',
+  output: 'cmlq_bin_func_r.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','maximum','--template','binop_case_guards_a'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func','--template','binop_case_guards_r'],
 )
-cmlq_max_l = custom_target(
-  'cmlq-max-l',
+cmlq_one_func_kw=custom_target(
+  'cmlq-one-func-kw',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_maximum_l.h',
+  output: 'cmlq_one_func_kw.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','maximum','--template','binop_case_guards_l'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--kw','--func', '--oneop'],
 )
-cmlq_max_r = custom_target(
-  'cmlq-max-r',
+cmlq_bin_func_kw_a=custom_target(
+  'cmlq-bin-func-kw-a',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_maximum_r.h',
+  output: 'cmlq_bin_func_kw_a.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','maximum','--template','binop_case_guards_r'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--kw', '--func','--template','binop_case_guards_a'],
 )
-cmlq_matmul_a = custom_target(
-  'cmlq-matmul-r',
+cmlq_bin_func_kw_l=custom_target(
+  'cmlq-bin-func-kw-l',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_matmul_a.h',
+  output: 'cmlq_bin_func_kw_l.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','matmul','--template','binop_case_guards_a'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--kw','--func','--template','binop_case_guards_l'],
 )
-cmlq_add_a=custom_target(
-  'cmlq-add-a',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_add_a.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','add','--template','binop_case_guards_a']
-)
-cmlq_add_l=custom_target(
-  'cmlq-add-l',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_add_l.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','add','--template','binop_case_guards_l']
-)
-cmlq_add_r=custom_target(
-  'cmlq-add-r',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_add_r.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','add','--template','binop_case_guards_r']
-)
-cmlq_add_a_kw=custom_target(
-  'cmlq-addkw-a',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_add_a_kw.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','add','--template','binop_case_guards_a']
-)
-cmlq_add_l_kw=custom_target(
-  'cmlq-addkw-l',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_add_l_kw.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','add','--template','binop_case_guards_l']
-)
-cmlq_add_r_kw=custom_target(
-  'cmlq-addkw-r',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_add_r_kw.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','add','--template','binop_case_guards_r']
-)
-cmlq_multiply_r_kw=custom_target(
-  'cmlq-multiplykw-r',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_multiply_r_kw.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','multiply','--template','binop_case_guards_r']
-)
-cmlq_multiply_l_kw=custom_target(
-  'cmlq-multiplykw-l',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_multiply_l_kw.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','multiply','--template','binop_case_guards_l']
-)
-cmlq_multiply_a_kw=custom_target(
-  'cmlq-multiplykw-a',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_multiply_a_kw.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','multiply','--template','binop_case_guards_a']
-)
-cmlq_sqrt_kw=custom_target(
-  'cmlq-sqrtkw',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_sqrt_kw.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','sqrt']
-)
-cmlq_divide_l_kw=custom_target(
-  'cmlq-dividekw-l',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_divide_l_kw.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--kw','--func','--funcname','divide','--template','binop_case_guards_l']
-)
-cmlq_subtract_a=custom_target(
-  'cmlq-subtract-a',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_subtract_a.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','subtract','--template','binop_case_guards_a']
-)
-cmlq_subtract_l=custom_target(
-  'cmlq-subtract-l',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_subtract_l.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','subtract','--template','binop_case_guards_l']
-)
-cmlq_subtract_r=custom_target(
-  'cmlq-subtract-r',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_subtract_r.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','subtract','--template','binop_case_guards_r']
-)
-cmlq_multiply_a=custom_target(
-  'cmlq-multiply-a',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_multiply_a.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','multiply','--template','binop_case_guards_a']
-)
-cmlq_multiply_l=custom_target(
-  'cmlq-multiply-l',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_multiply_l.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','multiply','--template','binop_case_guards_l']
-)
-cmlq_multiply_r=custom_target(
-  'cmlq-multiply-r',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_multiply_r.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','multiply','--template','binop_case_guards_r']
-)
-cmlq_square=custom_target(
-  'cmlq-square',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_square.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','square']
-)
-cmlq_sqrt=custom_target(
-  'cmlq-sqrt',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_sqrt.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','sqrt']
-)
-cmlq_absolute=custom_target(
-  'cmlq-absolute',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_absolute.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','absolute']
-)
-cmlq_reciprocal=custom_target(
-  'cmlq-reciprocal',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_reciprocal.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','reciprocal']
-)
-cmlq_tanh=custom_target(
-  'cmlq-tanh',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_tanh.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','tanh']
-)
-cmlq_exp=custom_target(
-  'cmlq-exp',
-  build_always_stale:true,
-  build_by_default:true,
-  output:'cmlq_exp.h',
-  input:'code_generators/cmlq_generator.py',
-  command:[py,'@INPUT@','--outfile','@OUTPUT@','--func','--funcname','exp']
-)
-cmlq_logical_and_a = custom_target(
-  'cmlq-logicaland-a',
+cmlq_bin_func_kw_r=custom_target(
+  'cmlq-bin-func-kw-r',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_logical_and_a.h',
+  output: 'cmlq_bin_func_kw_r.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','logical_and','--template','binop_case_guards_a'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--kw','--func','--template','binop_case_guards_r'],
 )
-cmlq_logical_not_a = custom_target(
-  'cmlq-logicalnot-a',
+cmlq_ufunc_table=custom_target(
+  'cmlq-ufunc-table',
   build_always_stale: true,
   build_by_default: true,
-  output: 'cmlq_logical_not_a.h',
+  output: 'ufunc_table.h',
   input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','logical_not','--template','binop_case_guards_a'],
-)
-cmlq_less_equal_a = custom_target(
-  'cmlq-lessequal-a',
-  build_always_stale: true,
-  build_by_default: true,
-  output: 'cmlq_less_equal_a.h',
-  input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','less_equal','--template','binop_case_guards_a'],
-)
-cmlq_arctan2_a = custom_target(
-  'cmlq-arctan2-a',
-  build_always_stale: true,
-  build_by_default: true,
-  output: 'cmlq_arctan2_a.h',
-  input: 'code_generators/cmlq_generator.py',
-  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--func', '--funcname','arctan2','--template','binop_case_guards_a'],
+  command: [py, '@INPUT@', '--outfile', '@OUTPUT@', '--functable']
 )
 src_multiarray = multiarray_gen_headers + [
   'src/multiarray/abstractdtypes.c',
@@ -1448,40 +1248,14 @@ src_multiarray = multiarray_gen_headers + [
   cmlq_binop_case_guards_a,
   cmlq_binop_case_guards_l,
   cmlq_binop_case_guards_r,
-  cmlq_min_a,
-  cmlq_min_l,
-  cmlq_min_r,
-  cmlq_max_a,
-  cmlq_max_l,
-  cmlq_max_r,
-  cmlq_add_a,
-  cmlq_add_l,
-  cmlq_add_r,
-  cmlq_add_a_kw,
-  cmlq_add_l_kw,
-  cmlq_add_r_kw,
-  cmlq_divide_l_kw,
-  cmlq_multiply_r_kw, 
-  cmlq_multiply_l_kw,
-  cmlq_multiply_a_kw,
-  cmlq_sqrt_kw,  
-  cmlq_logical_and_a,
-  cmlq_logical_not_a,
-  cmlq_arctan2_a,
-  cmlq_less_equal_a,
-  cmlq_absolute,
-  cmlq_reciprocal,
-  cmlq_subtract_a,
-  cmlq_subtract_l,
-  cmlq_subtract_r,
-  cmlq_multiply_a,
-  cmlq_multiply_l,
-  cmlq_multiply_r,
-  cmlq_matmul_a,
-  cmlq_square,
-  cmlq_sqrt,
-  cmlq_exp,
-  cmlq_tanh,
+  cmlq_one_func,
+  cmlq_one_func_kw,
+  cmlq_bin_func_a,
+  cmlq_bin_func_l,
+  cmlq_bin_func_r,
+  cmlq_bin_func_kw_a,
+  cmlq_bin_func_kw_l,
+  cmlq_bin_func_kw_r,
   'src/multiarray/refcount.c',
   src_file.process('src/multiarray/scalartypes.c.src'),
   'src/multiarray/sequence.c',

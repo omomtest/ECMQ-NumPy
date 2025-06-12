@@ -9317,6 +9317,7554 @@ fail:
     return -1;
 }
 
+int cmlq_acomplex_add_acomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_add_acomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArrayObject *rhs = (PyArrayObject *)m2;
+        if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_add(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_add(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) != PyArray_NDIM(rhs) ||
+        !PyArray_CompareLists(PyArray_SHAPE(lhs), PyArray_SHAPE(rhs), PyArray_NDIM(lhs))) {
+        fast_path = 2;
+    } else {
+        if (PyArray_NDIM(lhs) == 1) {
+            fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+            fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+        } else {
+            if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
+                !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+                fast_path = 2;
+            } else {
+                fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+                fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+            }
+        }
+    }
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_add(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_add(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_add(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_add(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_add_acomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_add_scomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_add_scomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_add(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_add(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_add(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_add(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_add(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_add(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_add_scomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_add_scomplex_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_add_scomplex_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_add(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_add(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_add(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_add(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_add_scomplex_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_true_divide_acomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_true_divide_acomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArrayObject *rhs = (PyArrayObject *)m2;
+        if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_divide(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_divide(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) != PyArray_NDIM(rhs) ||
+        !PyArray_CompareLists(PyArray_SHAPE(lhs), PyArray_SHAPE(rhs), PyArray_NDIM(lhs))) {
+        fast_path = 2;
+    } else {
+        if (PyArray_NDIM(lhs) == 1) {
+            fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+            fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+        } else {
+            if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
+                !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+                fast_path = 2;
+            } else {
+                fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+                fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+            }
+        }
+    }
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_divide(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_divide(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_divide(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_divide(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_true_divide_acomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_true_divide_scomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_true_divide_scomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_divide(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_divide(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_divide(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_divide(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_divide(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_divide(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_true_divide_scomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_true_divide_scomplex_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_true_divide_scomplex_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_divide(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_divide(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_divide(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_divide(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_true_divide_scomplex_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_subtract_acomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_subtract_acomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArrayObject *rhs = (PyArrayObject *)m2;
+        if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_subtract(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_subtract(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) != PyArray_NDIM(rhs) ||
+        !PyArray_CompareLists(PyArray_SHAPE(lhs), PyArray_SHAPE(rhs), PyArray_NDIM(lhs))) {
+        fast_path = 2;
+    } else {
+        if (PyArray_NDIM(lhs) == 1) {
+            fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+            fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+        } else {
+            if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
+                !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+                fast_path = 2;
+            } else {
+                fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+                fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+            }
+        }
+    }
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_subtract(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_subtract(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_subtract(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_subtract(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_subtract_acomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_acomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_acomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArrayObject *rhs = (PyArrayObject *)m2;
+        if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) != PyArray_NDIM(rhs) ||
+        !PyArray_CompareLists(PyArray_SHAPE(lhs), PyArray_SHAPE(rhs), PyArray_NDIM(lhs))) {
+        fast_path = 2;
+    } else {
+        if (PyArray_NDIM(lhs) == 1) {
+            fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+            fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+        } else {
+            if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
+                !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+                fast_path = 2;
+            } else {
+                fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+                fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+            }
+        }
+    }
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_acomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_scomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_scomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_scomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_scomplex_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_scomplex_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_scomplex_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_slong(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_slong")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyLong_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_slong")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_slong_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_slong_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyLong_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_slong_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_along(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_along")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArrayObject *rhs = (PyArrayObject *)m2;
+        if (NPY_UNLIKELY(PyArray_DESCR(rhs)->type_num != NPY_LONG)) {
+
+            goto deopt;
+        }
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) != PyArray_NDIM(rhs) ||
+        !PyArray_CompareLists(PyArray_SHAPE(lhs), PyArray_SHAPE(rhs), PyArray_NDIM(lhs))) {
+        fast_path = 2;
+    } else {
+        if (PyArray_NDIM(lhs) == 1) {
+            fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+            fixed_strides[1] = PyArray_STRIDES(rhs)[0];
+        } else {
+            if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) ||
+                !(PyArray_FLAGS(rhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+                fast_path = 2;
+            } else {
+                fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+                fixed_strides[1] = PyArray_ITEMSIZE(rhs);
+            }
+        }
+    }
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_along")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_sdouble(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_sdouble")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyFloat_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_sdouble")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_sdouble_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_sdouble_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyFloat_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_sdouble_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_sfloat(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_sfloat")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyFloat_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_sfloat")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_acomplex_multiply_sfloat_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_acomplex_multiply_sfloat_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyFloat_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_CDOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyFloat_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_acomplex_multiply_sfloat_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_afloat_multiply_scomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_afloat_multiply_scomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_afloat_multiply_scomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_afloat_multiply_scomplex_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_afloat_multiply_scomplex_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_afloat_multiply_scomplex_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_adouble_multiply_scomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_adouble_multiply_scomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_adouble_multiply_scomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_adouble_multiply_scomplex_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_adouble_multiply_scomplex_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_adouble_multiply_scomplex_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_along_multiply_scomplex(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_along_multiply_scomplex")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_LONG)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            CDOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+
+            goto success;
+        }
+        else {
+
+            trivial_cache_miss(elem);
+        }
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+        if (RESULT_CACHE_VALID(elem)) {
+
+            result = elem->result;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                CDOUBLE_multiply(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+       } else {
+
+            iterator_cache_miss(elem);
+       }
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+            if (PyArray_NBYTES(result) >= 4096) {
+
+                cache_miss(elem);
+                elem->state = DISABLED;
+            }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                Py_INCREF(elem->result);
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        int should_deallocate = 0;
+
+        if (PyArray_NBYTES(result) >= 4096) {
+
+            cache_miss(elem);
+            elem->state = DISABLED;
+        }
+
+        if (elem->state != DISABLED && result != lhs) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    elem = (CMLQLocalityCacheElem *)external_cache_pointer;
+    if (elem->state != UNUSED) {
+
+        if (elem->state == TRIVIAL) {
+            Py_XDECREF(elem->result);
+        } else if (elem->state == ITERATOR) {
+            NpyIter_Deallocate(elem->iterator.cached_iter);
+            elem->iterator.cached_iter = NULL;
+        }
+
+        elem->state = UNUSED;
+        elem->result = NULL;
+        backoff_CMLQCounter(&(elem->counter));
+
+    }
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    Py_DECREF(rhs);
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_along_multiply_scomplex")
+    return 0;
+fail:
+    return -1;
+}
+
+int cmlq_along_multiply_scomplex_broadcast_cache(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+    //CMLQ_PAPI_BEGIN("cmlq_along_multiply_scomplex_broadcast_cache")
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-2];
+    PyObject *m2 = (*stack_pointer_ptr)[-1];
+    if (PyComplex_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_LONG)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyComplex_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        assert(elem->state == BROADCAST && elem->result);
+        PyArrayObject *rhs = elem->result;
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+
+            // try to avoid creating a temporary array
+            determine_elide_temp_binary(m1, m2, (PyObject **)&result, 1);
+
+    if(fast_path == 1) {
+
+            if (result == NULL) {
+                // there was no temp elision so we need to create a new array
+                PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+                // at this time we know that the arrays can't have different dimensions otherwise we would have taken the iterator path
+                result = (PyArrayObject *)PyArray_NewFromDescr(
+                        &PyArray_Type, result_descr, result_ndims,
+                        result_shape, NULL, NULL,
+                        0, NULL);
+                fixed_strides[2] = PyArray_ITEMSIZE(result);;
+            } else {
+                // there was temp elision
+                Py_INCREF(result);
+
+                // copy the strides from the lhs (because it is the result as well)
+                if (PyArray_NDIM(lhs) == 1) {
+                    fixed_strides[2] = PyArray_STRIDES(lhs)[0];
+                } else {
+                    fixed_strides[2] = PyArray_ITEMSIZE(lhs);
+                }
+            }
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        CDOUBLE_multiply(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_CDOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = op_it[2];
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            CDOUBLE_multiply(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", CDOUBLE_multiply(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+            should_deallocate=1;
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+
+    // the rhs is a cached broadcast array, no decref
+
+    Py_DECREF(m2);
+
+    (*stack_pointer_ptr)--;
+    assert(PyArray_CheckExact(result));
+    (*stack_pointer_ptr)[-1] = (PyObject *)result;
+    //CMLQ_PAPI_END("cmlq_along_multiply_scomplex_broadcast_cache")
+    return 0;
+fail:
+    return -1;
+}
+
 int cmlq_along_true_divide_sfloat(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
 {
     //CMLQ_PAPI_BEGIN("cmlq_along_true_divide_sfloat")
@@ -13456,7 +21004,6 @@ int cmlq_adouble_square_power_sfloat(void *restrict external_cache_pointer, PyOb
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
                 elem->trivial.fixed_strides[1] = fixed_strides[1];
-                elem->trivial.fixed_strides[2] = fixed_strides[2];
                 elem->state = TRIVIAL;
 
             } else {
@@ -13835,7 +21382,6 @@ int cmlq_adouble_square_power_slong(void *restrict external_cache_pointer, PyObj
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
                 elem->trivial.fixed_strides[1] = fixed_strides[1];
-                elem->trivial.fixed_strides[2] = fixed_strides[2];
                 elem->state = TRIVIAL;
 
             } else {
@@ -27962,7 +35508,6 @@ int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restr
             INT_add(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
 
             NPY_END_THREADS;
-
             goto success;
 
     } else if (CACHE_MATCH_ITERATOR()) {
@@ -28221,11 +35766,723 @@ int cmlq_add_aint_aint_kw(void *restrict external_cache_pointer, PyObject *restr
     raise(SIGTRAP);
 
 deopt:
-fprintf(stderr, "deopt\n");
     return 2;
 
 success:
-fprintf(stderr, "success\n");
+    Py_DECREF(lhs);
+    Py_DECREF(rhs);
+
+    Py_DECREF(callable);
+
+    // skip the arguments and the NULL on the stack
+    *stack_pointer_ptr -= 5;
+    assert(PyArray_CheckExact(out));
+    (*stack_pointer_ptr)[-1] = (PyObject *)out;
+    return 0;
+
+fail:
+    return -1;
+}
+
+
+
+int cmlq_add_afloat_slong_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-4];
+    PyObject *m2 = (*stack_pointer_ptr)[-3];
+    if (PyLong_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_FLOAT)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    //kwnames key1 arg1 arg2 self_or_null callable
+
+    PyObject *callable = (*stack_pointer_ptr)[-6];
+    PyUFuncObject *ufunc = (PyUFuncObject *)callable;
+
+    PyObject *out = (*stack_pointer_ptr)[-2];
+
+    if (NPY_UNLIKELY(!ufunc->specializable)) {
+
+        // ufunc has user loops or is generalized
+        fprintf(stderr,"ufunc_type_misses\n");
+        goto deopt;
+    }
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+            result = out;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            FLOAT_add(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+            goto success;
+
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+            result = out;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                FLOAT_add(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+        fixed_strides[2] = PyArray_ITEMSIZE(out);
+
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
+
+    if(fast_path == 1) {
+
+        assert(out == result);
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        FLOAT_add(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", FLOAT_add(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+
+        if (elem->state != DISABLED ) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = NULL;
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_FLOAT);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = out;
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            FLOAT_add(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", FLOAT_add(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                 elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
+    Py_DECREF(lhs);
+    Py_DECREF(rhs);
+
+    Py_DECREF(callable);
+
+    // skip the arguments and the NULL on the stack
+    *stack_pointer_ptr -= 5;
+    assert(PyArray_CheckExact(out));
+    (*stack_pointer_ptr)[-1] = (PyObject *)out;
+    return 0;
+
+fail:
+    return -1;
+}
+
+
+
+int cmlq_true_divide_adouble_slong_kw(void *restrict external_cache_pointer, PyObject *restrict **stack_pointer_ptr)
+{
+        CMLQLocalityCacheElem *restrict elem = (CMLQLocalityCacheElem *restrict)external_cache_pointer;
+
+    PyObject *m1 = (*stack_pointer_ptr)[-4];
+    PyObject *m2 = (*stack_pointer_ptr)[-3];
+    if (PyLong_CheckExact(m1)) {
+        PyObject *tmp = m1;
+        m1 = m2;
+        m2 = tmp;
+    }
+
+        if (NPY_UNLIKELY(!PyArray_CheckExact(m1))) {
+
+            goto deopt;
+        }
+        PyArrayObject *lhs = (PyArrayObject *)m1;
+        if (NPY_UNLIKELY(PyArray_DESCR(lhs)->type_num != NPY_DOUBLE)) {
+
+            goto deopt;
+        }
+
+        if (NPY_UNLIKELY(!PyLong_CheckExact(m2))) {
+
+            goto deopt;
+        }
+        PyArray_Descr *right_descr = NULL;
+
+        PyArrayObject *rhs = (PyArrayObject *)PyArray_FromAny(m2, right_descr, 0, 0, 0, NULL);
+
+    // No need to check for ufunc overrides as we check for ndarray exact type
+    // PyUFuncOverride_GetNonDefaultArrayUfunc even has a fast path for this case because there are no overrides
+
+    PyArrayObject *ops[] = {lhs, rhs, NULL};
+    PyArrayObject *result = NULL;
+
+    // the non-scalar side determines the result shape
+    npy_intp result_ndims = PyArray_NDIM(lhs);
+    npy_intp *result_shape = PyArray_SHAPE(lhs);
+
+    //kwnames key1 arg1 arg2 self_or_null callable
+
+    PyObject *callable = (*stack_pointer_ptr)[-6];
+    PyUFuncObject *ufunc = (PyUFuncObject *)callable;
+
+    PyObject *out = (*stack_pointer_ptr)[-2];
+
+    if (NPY_UNLIKELY(!ufunc->specializable)) {
+
+        // ufunc has user loops or is generalized
+        fprintf(stderr,"ufunc_type_misses\n");
+        goto deopt;
+    }
+
+// we can only use the result cache if we are the sole owner of the result object
+// and if the object properties match the required result properties
+#define RESULT_CACHE_VALID(elem) \
+    ((PyObject *)(elem->result))->ob_refcnt == 1 && \
+    PyArray_NDIM(elem->result) == result_ndims && \
+    PyArray_CompareLists(result_shape, PyArray_SHAPE(elem->result), result_ndims)
+
+#define CACHE_MATCH_TRIVIAL() \
+    elem->state == TRIVIAL
+
+#define CACHE_MATCH_ITERATOR() \
+    elem->state == ITERATOR
+
+    if (CACHE_MATCH_TRIVIAL()) {
+
+            result = out;
+
+            // in addition to the cache, the result will be pushed to the stack
+            Py_INCREF(result);
+
+            char *data[3];
+            data[0] = PyArray_BYTES(lhs);
+            data[1] = PyArray_BYTES(rhs);
+            data[2] = PyArray_BYTES(result);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(elem->trivial.count);
+
+            NpyAuxData *auxdata = NULL;
+            DOUBLE_divide(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
+
+            NPY_END_THREADS;
+            goto success;
+
+    } else if (CACHE_MATCH_ITERATOR()) {
+
+            result = out;
+
+            // the result will be pushed to the stack
+            Py_INCREF(result);
+
+            NpyIter *iter = elem->iterator.cached_iter;
+
+            PyArrayObject *op_it[3];
+            op_it[0] = lhs; // is always LHS
+
+            op_it[1] = rhs;
+
+            op_it[2] = result;
+
+            // can reuse the old one, nothing changes there...
+            NpyIter_IterNextFunc *iter_next = elem->iterator.iter_next;
+            char **dataptr = elem->iterator.dataptr;
+            npy_intp *strides = elem->iterator.strides;
+
+            char *baseptrs[3];
+            baseptrs[0] = PyArray_BYTES(op_it[0]);
+            baseptrs[1] = PyArray_BYTES(op_it[1]);
+            baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+            NPY_BEGIN_THREADS_DEF;
+            NPY_BEGIN_THREADS_THRESHOLDED(NpyIter_GetIterSize(elem->iterator.cached_iter));
+
+            /* The reset may copy the first buffer chunk, which could cause FPEs */
+            if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+                NpyIter_Deallocate(iter);
+                goto fail;
+            }
+
+            NpyAuxData *auxdata = NULL;
+
+            /* Execute the loop */
+            do {
+                DOUBLE_divide(dataptr, elem->iterator.countptr, strides, auxdata);
+            } while (iter_next(iter));
+
+            NPY_END_THREADS;
+
+            // standard epilogue here...
+            goto success;
+
+    } else {
+        assert(elem->state == UNUSED || elem->state == DISABLED);
+
+        if (elem->state == TRIVIAL) {
+            // cache collision, free the old result element
+            trivial_cache_miss(elem);
+
+        }
+
+        if (elem->state == ITERATOR) {
+            iterator_cache_miss(elem);
+
+        }
+
+        // initialize cache element
+        if (elem->state == UNUSED) {
+            elem->result = NULL;
+        }
+    }
+
+    npy_intp fixed_strides[3];
+    int fast_path = 1;
+
+    if (PyArray_NDIM(lhs) == 1) {
+        fixed_strides[0] = PyArray_STRIDES(lhs)[0];
+    } else {
+        if (!(PyArray_FLAGS(lhs) & (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS))) {
+            fast_path = 2;
+        } else {
+            fixed_strides[0] = PyArray_ITEMSIZE(lhs);
+        }
+    }
+
+    fixed_strides[1] = 0;
+        fixed_strides[2] = PyArray_ITEMSIZE(out);
+
+        // inplace operation, the result is the same as the lhs
+        Py_INCREF(out);
+        result = out;
+
+    if(fast_path == 1) {
+
+        assert(out == result);
+
+        npy_intp count = PyArray_MultiplyList(result_shape, result_ndims);
+
+        char *data[3];
+        data[0] = PyArray_BYTES(lhs);
+        data[1] = PyArray_BYTES(rhs);
+        data[2] = PyArray_BYTES(result);
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(count);
+
+        NpyAuxData *auxdata = NULL;
+
+        DOUBLE_divide(data, &count, fixed_strides, auxdata);
+        //CMLQ_PAPI_REGION("core_loop", DOUBLE_divide(data, &count, fixed_strides, auxdata));
+
+        NPY_END_THREADS;
+
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+
+        if (elem->state != DISABLED ) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                elem->result = NULL;
+
+                elem->trivial.count = count;
+                elem->trivial.fixed_strides[0] = fixed_strides[0];
+                elem->trivial.fixed_strides[1] = fixed_strides[1];
+                elem->trivial.fixed_strides[2] = fixed_strides[2];
+                elem->state = TRIVIAL;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+            }
+        }
+
+        goto success;
+    }
+
+    if (fast_path == 2) {
+
+        // use the standard flags here
+        npy_uint32 iter_flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK |
+                                NPY_ITER_ZEROSIZE_OK | NPY_ITER_BUFFERED |
+                                NPY_ITER_GROWINNER | NPY_ITER_DELAY_BUFALLOC |
+                                NPY_ITER_COPY_IF_OVERLAP;
+
+        PyArray_Descr *result_descr = PyArray_DescrFromType(NPY_DOUBLE);
+
+        PyArray_Descr *descriptors[3] = {PyArray_DESCR(lhs), PyArray_DESCR(rhs), result_descr};
+        npy_uint32 op_flags[3] = {NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_UFUNC_DEFAULT_INPUT_FLAGS, NPY_ITER_WRITEONLY | NPY_UFUNC_DEFAULT_OUTPUT_FLAGS};
+
+        // if result is not NULL, it means we need to reuse it, if it is NULL the iterator will create a new array
+        ops[2] = result;
+
+        NpyIter *iter = NpyIter_AdvancedNew(3, ops,
+                                            iter_flags,
+                                            NPY_KEEPORDER, NPY_UNSAFE_CASTING,
+                                            op_flags, descriptors,
+                                            -1, NULL, NULL, NPY_BUFSIZE);
+        if (iter == NULL) {
+            goto fail;
+        }
+
+        /* Set the output array as output (the iterator might have created an array) */
+        PyArrayObject **op_it = NpyIter_GetOperandArray(iter);
+        result = out;
+
+        // the result will be pushed to the stack
+        Py_INCREF(result);
+
+        /* Only do the loop if the iteration size is non-zero */
+        npy_intp full_size = NpyIter_GetIterSize(iter);
+        if (full_size == 0) {
+            Py_DECREF(result_descr);
+            if (!NpyIter_Deallocate(iter)) {
+                goto fail;
+            }
+            goto success;
+        }
+
+        char *baseptrs[3];
+
+        baseptrs[0] = PyArray_BYTES(op_it[0]);
+        baseptrs[1] = PyArray_BYTES(op_it[1]);
+        baseptrs[2] = PyArray_BYTES(op_it[2]);
+
+        /* Get the variables needed for the loop */
+        NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+        char **dataptr = NpyIter_GetDataPtrArray(iter);
+        npy_intp *strides = NpyIter_GetInnerStrideArray(iter);
+        npy_intp *countptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+        NpyAuxData *auxdata = NULL;
+
+        NPY_BEGIN_THREADS_DEF;
+        NPY_BEGIN_THREADS_THRESHOLDED(full_size);
+
+        /* The reset may copy the first buffer chunk, which could cause FPEs */
+        if (NpyIter_ResetBasePointers(iter, baseptrs, NULL) != NPY_SUCCEED) {
+            NpyIter_Deallocate(iter);
+            Py_DECREF(result_descr);
+            goto fail;
+        }
+
+        /* Execute the loop */
+        do {
+            DOUBLE_divide(dataptr, countptr, strides, auxdata);
+            //CMLQ_PAPI_REGION("core_loop", DOUBLE_divide(dataptr, countptr, strides, auxdata));
+        } while (iternext(iter));
+
+        NPY_END_THREADS;
+
+        // no locality cache, we always need to deallocate the iterator
+        int should_deallocate = 0;
+        // this is an inplace operation. We do not cache the result here because no result array is allocated anyway
+        if (elem->state != DISABLED ) {
+            if (CMLQCounter_triggered(elem->counter)) {
+                 elem->state = ITERATOR;
+
+                elem->iterator.countptr = countptr;
+                elem->iterator.dataptr = dataptr;
+                elem->iterator.strides = strides;
+
+                // we do not need to increase the refcnt here because the iterator holds the reference
+                elem->result = result;
+                ((PyArrayObject_fields *)elem->result)->flags |= NPY_ARRAY_IN_LOCALITY_CACHE;
+                elem->iterator.cached_iter = iter;
+                elem->iterator.iter_next = *iternext;
+
+            } else {
+                // warm up the result cache
+                advance_CMLQCounter(&(elem->counter));
+                should_deallocate = 1;
+            }
+        } else {
+            // the iterator is not cached, so we need to deallocate it
+            should_deallocate = 1;
+        }
+
+        if (should_deallocate) {
+            if (!NpyIter_Deallocate(iter)) {
+                 goto fail;
+            }
+        }
+
+        Py_DECREF(result_descr);
+        goto success;
+    }
+
+    // some other error we can't handle
+    raise(SIGTRAP);
+
+deopt:
+    return 2;
+
+success:
     Py_DECREF(lhs);
     Py_DECREF(rhs);
 
@@ -28326,7 +36583,6 @@ int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *r
             FLOAT_add(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
 
             NPY_END_THREADS;
-
             goto success;
 
     } else if (CACHE_MATCH_ITERATOR()) {
@@ -28585,11 +36841,9 @@ int cmlq_add_afloat_afloat_kw(void *restrict external_cache_pointer, PyObject *r
     raise(SIGTRAP);
 
 deopt:
-fprintf(stderr, "deopt\n");
     return 2;
 
 success:
-fprintf(stderr, "success\n");
     Py_DECREF(lhs);
     Py_DECREF(rhs);
 
@@ -28690,7 +36944,6 @@ int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject 
             DOUBLE_add(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
 
             NPY_END_THREADS;
-
             goto success;
 
     } else if (CACHE_MATCH_ITERATOR()) {
@@ -28949,11 +37202,9 @@ int cmlq_add_adouble_adouble_kw(void *restrict external_cache_pointer, PyObject 
     raise(SIGTRAP);
 
 deopt:
-fprintf(stderr, "deopt\n");
     return 2;
 
 success:
-fprintf(stderr, "success\n");
     Py_DECREF(lhs);
     Py_DECREF(rhs);
 
@@ -29054,7 +37305,6 @@ int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *
             INT_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
 
             NPY_END_THREADS;
-
             goto success;
 
     } else if (CACHE_MATCH_ITERATOR()) {
@@ -29313,11 +37563,9 @@ int cmlq_multiply_aint_aint_kw(void *restrict external_cache_pointer, PyObject *
     raise(SIGTRAP);
 
 deopt:
-fprintf(stderr, "deopt\n");
     return 2;
 
 success:
-fprintf(stderr, "success\n");
     Py_DECREF(lhs);
     Py_DECREF(rhs);
 
@@ -29421,7 +37669,6 @@ int cmlq_multiply_adouble_sdouble_kw(void *restrict external_cache_pointer, PyOb
             DOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
 
             NPY_END_THREADS;
-
             goto success;
 
     } else if (CACHE_MATCH_ITERATOR()) {
@@ -29673,11 +37920,9 @@ int cmlq_multiply_adouble_sdouble_kw(void *restrict external_cache_pointer, PyOb
     raise(SIGTRAP);
 
 deopt:
-fprintf(stderr, "deopt\n");
     return 2;
 
 success:
-fprintf(stderr, "success\n");
     Py_DECREF(lhs);
     Py_DECREF(rhs);
 
@@ -29778,7 +38023,6 @@ int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyOb
             DOUBLE_multiply(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
 
             NPY_END_THREADS;
-
             goto success;
 
     } else if (CACHE_MATCH_ITERATOR()) {
@@ -30037,11 +38281,9 @@ int cmlq_multiply_adouble_adouble_kw(void *restrict external_cache_pointer, PyOb
     raise(SIGTRAP);
 
 deopt:
-fprintf(stderr, "deopt\n");
     return 2;
 
 success:
-fprintf(stderr, "success\n");
     Py_DECREF(lhs);
     Py_DECREF(rhs);
 
@@ -30122,7 +38364,6 @@ npy_intp *result_shape = PyArray_SHAPE(lhs);
             DOUBLE_sqrt(data, &elem->trivial.count, elem->trivial.fixed_strides, auxdata);
 
             NPY_END_THREADS;
-
             goto success;
 
     } else if (CACHE_MATCH_ITERATOR()) {
@@ -30191,6 +38432,7 @@ npy_intp *result_shape = PyArray_SHAPE(lhs);
 
     npy_intp fixed_strides[2];
     int fast_path = 1;
+        fixed_strides[1] = PyArray_ITEMSIZE(out);
 
     if (PyArray_NDIM(lhs) == 1) {
         fixed_strides[0] = PyArray_STRIDES(lhs)[0];
@@ -30235,7 +38477,6 @@ npy_intp *result_shape = PyArray_SHAPE(lhs);
                 elem->trivial.count = count;
                 elem->trivial.fixed_strides[0] = fixed_strides[0];
                 elem->trivial.fixed_strides[1] = fixed_strides[1];
-                elem->trivial.fixed_strides[2] = fixed_strides[2];
                 elem->state = TRIVIAL;
 
             } else {

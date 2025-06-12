@@ -27,6 +27,8 @@ def to_python_type(type):
             name = "Float"
         case "long":
             name = "Long"
+        case "complex"|"complex128"| "complex64":
+            name = "Complex"
         case _:
             raise Exception(f"Unknown Python scalar type for {type}")
     return name
@@ -48,6 +50,10 @@ def to_numpy_type(type):
             name = "NPY_HALF"
         case "bool":
             name="NPY_BOOL"
+        case "complex" | "complex128":
+            name = "NPY_CDOUBLE"
+        case "complex64":
+            name = "NPY_CFLOAT"
         case _:
             raise Exception(f"Unknown numpy type for {type_name}")
     return name
@@ -554,7 +560,104 @@ def build_derivatives(flatten, cache_stats):
             result_type="NPY_LONG",
             loop_function="LONG_multiply",
         ),
-
+        BinOp(
+            operation="add",
+            left_type="acomplex",
+            right_type="acomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_add",
+        ),
+        BinOp(
+            operation="add",
+            left_type="acomplex",
+            right_type="scomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_add",
+        ),
+        BinOp(
+            operation="true_divide",
+            left_type="acomplex",
+            right_type="acomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_divide",
+        ),
+        BinOp(
+            operation="true_divide",
+            left_type="acomplex",
+            right_type="scomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_divide",
+        ),
+        BinOp(
+            operation="subtract",
+            left_type="acomplex",
+            right_type="acomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_subtract",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="acomplex",
+            right_type="acomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="acomplex",
+            right_type="scomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="acomplex",
+            right_type="slong",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="acomplex",
+            right_type="along",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="acomplex",
+            right_type="sdouble",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="acomplex",
+            right_type="sfloat",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="afloat",
+            right_type="scomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="adouble",
+            right_type="scomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
+        BinOp(
+            operation="multiply",
+            left_type="along",
+            right_type="scomplex",
+            result_type="NPY_CDOUBLE",
+            loop_function="CDOUBLE_multiply",
+        ),
         # this case requires potential casting of the long array, which is not currently implemented
         # see check_for_trivial_loop in multiarraymodule.c
         # BinOp(
@@ -1162,7 +1265,7 @@ def generate_case_guards(derivatives, lookup, out,template_):
         print(
             "}",
         )
-def generate_func_case_guards(derivatives, lookup, out,function,template_=None):
+def generate_bin_func_case_guards(derivatives, lookup, out,template_=None):
     global print
     print = functools.partial(print, file=out)
     if template_ is not None:
@@ -1170,12 +1273,7 @@ def generate_func_case_guards(derivatives, lookup, out,function,template_=None):
     binops = [
         d
         for d in derivatives
-        if isinstance(d, BinOp) and  isinstance(d, FunctionBinOp) and d.operation == function
-    ]
-    oneOps=[
-        d
-        for d in derivatives
-        if isinstance(d,OneOp) and isinstance(d,FunctionOneOp) and d.operation==function
+        if isinstance(d, BinOp) and  isinstance(d, FunctionBinOp) 
     ]
    
     if len(binops)!=0:
@@ -1183,9 +1281,15 @@ def generate_func_case_guards(derivatives, lookup, out,function,template_=None):
         for binop in binops:
             name = binop.operation
             groups[name].append(binop)
-        # print("\tPyObject *rhs = STACK_ELEMENT(-1);")
-        # print("\tPyObject *lhs = STACK_ELEMENT(-2);")
+
         for group_name, group in groups.items():
+            case_name = f"UFUNC_{group_name.upper()}"
+            print(
+                f"case {case_name}:",
+            )
+            print(
+                "{",
+            )
             for derivative in group:
                 if not derivative.guard_template:
                     continue
@@ -1193,27 +1297,48 @@ def generate_func_case_guards(derivatives, lookup, out,function,template_=None):
                 template_args = derivative.to_template_args()
                 render_template(template, template_args, out)
             print(
-                "\treport_missing_binop_case(instr, lhs, rhs);\n"
+                "\treport_missing_binop_case(instr, lhs, rhs);\nreturn 0;\n"
             )
+            print(
+            "}",
+            )
+
+def generate_one_func_case_guards(derivatives, lookup, out):
+    global print
+    print = functools.partial(print, file=out)
+
+    oneOps = [
+        d
+        for d in derivatives
+        if isinstance(d, OneOp) and  isinstance(d, FunctionOneOp) 
+    ]
+   
     if len(oneOps)!=0:
-        ogroups=defaultdict(list)
+        groups = defaultdict(list)
         for oneOp in oneOps:
             name = oneOp.operation
-            ogroups[name].append(oneOp)
-        # print("\tPyObject *lhs = STACK_ELEMENT(-1);")
-        for group_name, group in ogroups.items():
+            groups[name].append(oneOp)
+
+        for group_name, group in groups.items():
+            case_name = f"UFUNC_{group_name.upper()}"
+            print(
+                f"case {case_name}:",
+            )
+            print(
+                "{",
+            )
+            
             for derivative in group:
                 if not derivative.guard_template:
                     continue
                 template = lookup.get_template(derivative.guard_template)
                 template_args = derivative.to_template_args()
                 render_template(template, template_args, out)
-            print(
-                "\t//missing func_one_Op\n"
-            )
-   
 
-def generate_func_kw_case_guards(derivatives, lookup, out,function,template_=None):
+            print(
+            "}",
+            )
+def generate_bin_func_kw_case_guards(derivatives, lookup, out,template_=None):
     global print
     print = functools.partial(print, file=out)
     if template_ is not None:
@@ -1221,21 +1346,21 @@ def generate_func_kw_case_guards(derivatives, lookup, out,function,template_=Non
     binopskw = [
         d
         for d in derivatives
-        if isinstance(d, BinOp) and  isinstance(d, FunctionBinOpKw) and d.operation == function
-    ]
-    oneOpsKw=[
-        d
-        for d in derivatives
-        if isinstance(d,OneOp) and isinstance(d,FunctionOneOpKw) and d.operation==function
+        if isinstance(d, BinOp) and  isinstance(d, FunctionBinOpKw) 
     ]
     if len(binopskw)!=0:
         groups = defaultdict(list)
         for binopkw in binopskw:
             name = binopkw.operation
             groups[name].append(binopkw)
-        # print("\tPyObject *rhs = STACK_ELEMENT(-1);")
-        # print("\tPyObject *lhs = STACK_ELEMENT(-2);")
         for group_name, group in groups.items():
+            case_name = f"UFUNC_{group_name.upper()}"
+            print(
+                f"case {case_name}:",
+            )
+            print(
+                "{",
+            )
             for derivative in group:
                 if not derivative.guard_template:
                     continue
@@ -1243,15 +1368,33 @@ def generate_func_kw_case_guards(derivatives, lookup, out,function,template_=Non
                 template_args = derivative.to_template_args()
                 render_template(template, template_args, out)
             print(
-                "\treport_missing_binop_case(instr, lhs, rhs);\n"
+                "\treport_missing_binop_case(instr, lhs, rhs);\nreturn 0;\n"
             )
-    if len(oneOpsKw)!=0:
-        ogroups=defaultdict(list)
-        for oneOpkw in oneOpsKw:
+            print(
+            "}",
+            )
+
+def generate_one_func_kw_case_guards(derivatives, lookup, out):
+    global print
+    print = functools.partial(print, file=out)
+    oneOpskw = [
+        d
+        for d in derivatives
+        if isinstance(d, OneOp) and  isinstance(d, FunctionOneOpKw) 
+    ]
+    if len(oneOpskw)!=0:
+        groups = defaultdict(list)
+        for oneOpkw in oneOpskw:
             name = oneOpkw.operation
-            ogroups[name].append(oneOpkw)
-        # print("\tPyObject *lhs = STACK_ELEMENT(-1);")
-        for group_name, group in ogroups.items():
+            groups[name].append(oneOpkw)
+        for group_name, group in groups.items():
+            case_name = f"UFUNC_{group_name.upper()}"
+            print(
+                f"case {case_name}:",
+            )
+            print(
+                "{",
+            )
             for derivative in group:
                 if not derivative.guard_template:
                     continue
@@ -1259,7 +1402,7 @@ def generate_func_kw_case_guards(derivatives, lookup, out,function,template_=Non
                 template_args = derivative.to_template_args()
                 render_template(template, template_args, out)
             print(
-                "\t//missing func_one_Op\n"
+            "}",
             )
 
 def generate_declarations(derivatives, out):
@@ -1269,14 +1412,67 @@ def generate_declarations(derivatives, out):
         print(f"{derivative.signature()};\n")
         print(f"{derivative.slot_define()}\n")
 
+def generate_ufunc_table(derivatives,out):
+    global print
+    print = functools.partial(print, file=out)
+    funcs = [
+        d
+        for d in derivatives
+        if isinstance(d, FunctionBinOp) or isinstance(d,FunctionBinOpKw) or isinstance(d,FunctionOneOpKw) or isinstance(d,FunctionOneOp) 
+    ]
+
+    groups = set()
+    for func in funcs:
+        name = func.operation
+        groups.add(name)
+    sorted_groups = sorted(groups)
+    
+    case_names=[]
+    for group in groups:
+        case_names.append(f"UFUNC_{group.upper()}")
+    case_names.sort()
+
+    print(
+        '''typedef struct {
+            const char *key;
+            int value;
+        } LookupEntry;\n'''
+    )
+    i=0
+    for case_name in case_names:
+        print(f"#define {case_name} {i}")
+        i+=1
+    print("\nstatic const LookupEntry STATIC_TABLE[] = {")
+    for group in sorted_groups:
+        print(f'    {{"{group}", UFUNC_{group.upper()}}},')
+    print("};\n")
+    print("\nstatic const size_t TABLE_SIZE =sizeof(STATIC_TABLE) / sizeof(STATIC_TABLE[0]);\n")
+    print('''int get_value(const char *key)
+    {
+        int low = 0;
+        int high = TABLE_SIZE - 1;
+
+        while (low <= high) {
+            int mid = low + (high - low) / 2;
+            int cmp = strcmp(key, STATIC_TABLE[mid].key);
+
+            if (cmp == 0) {
+                return STATIC_TABLE[mid].value;  // 命中返回对应值
+            }
+            else if (cmp < 0) {
+                high = mid - 1;
+            }
+            else {
+                low = mid + 1;
+            }
+        }
+
+        return -1;  // 未找到
+        }''')
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-o", "--outfile", type=str, help="Path to the output file")
-parser.add_argument(
-    "--funcname",
-    type=str,
-    help="Generate  function "
-)
+
 parser.add_argument(
     "--num",
     type=int,
@@ -1326,6 +1522,19 @@ parser.add_argument(
     default=False,
     help="Generate code about CALL_KW",
 )
+parser.add_argument(
+    "--oneop",
+    action="store_true",
+    default=False,
+    help="To judge if the func is one op or not",
+)
+
+parser.add_argument(
+    "--functable",
+    action="store_true",
+    default=False,
+    help="Generate ufunc_table",
+)
 
 parser.add_argument(
     "-f",
@@ -1349,8 +1558,16 @@ with smart_open(args.outfile) as out:
     elif args.declarations:
         generate_declarations(derivatives, out)
     elif args.func and not args.kw:
-        generate_func_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["funcname"],dict(args._get_kwargs())["template"])
+        if args.oneop:
+            generate_one_func_case_guards(derivatives, lookup, out)
+        else:
+            generate_bin_func_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["template"])
     elif args.func and args.kw:
-        generate_func_kw_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["funcname"],dict(args._get_kwargs())["template"])
+        if args.oneop:
+            generate_one_func_kw_case_guards(derivatives, lookup, out)
+        else:
+            generate_bin_func_kw_case_guards(derivatives, lookup, out,dict(args._get_kwargs())["template"])
+    elif args.functable:
+        generate_ufunc_table(derivatives, out)
     else:
         generate_implementations(derivatives, lookup, out)
