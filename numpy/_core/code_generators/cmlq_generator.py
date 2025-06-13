@@ -620,7 +620,7 @@ def build_derivatives(flatten, cache_stats):
         # BinOp(
         #     operation="multiply",
         #     left_type="acomplex",
-        #     right_type="along",
+        #     right_type="aint",
         #     result_type="NPY_CDOUBLE",
         #     loop_function="CDOUBLE_multiply",
         # ),
@@ -782,6 +782,14 @@ def build_derivatives(flatten, cache_stats):
         FunctionBinOp(
             operation="minimum",
             left_type="afloat",
+            right_type="sfloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_minimum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="minimum",
+            left_type="afloat",
             right_type="slong",
             result_type="NPY_FLOAT",
             loop_function="FLOAT_minimum",
@@ -791,6 +799,14 @@ def build_derivatives(flatten, cache_stats):
             operation="minimum",
             left_type="adouble",
             right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_minimum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="minimum",
+            left_type="adouble",
+            right_type="sdouble",
             result_type="NPY_DOUBLE",
             loop_function="DOUBLE_minimum",
             impl_template="function_binop.mako",
@@ -807,6 +823,14 @@ def build_derivatives(flatten, cache_stats):
             operation="maximum",
             left_type="afloat",
             right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_maximum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="maximum",
+            left_type="afloat",
+            right_type="sfloat",
             result_type="NPY_FLOAT",
             loop_function="FLOAT_maximum",
             impl_template="function_binop.mako",
@@ -831,6 +855,14 @@ def build_derivatives(flatten, cache_stats):
             operation="maximum",
             left_type="adouble",
             right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_maximum",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="maximum",
+            left_type="adouble",
+            right_type="sdouble",
             result_type="NPY_DOUBLE",
             loop_function="DOUBLE_maximum",
             impl_template="function_binop.mako",
@@ -865,6 +897,14 @@ def build_derivatives(flatten, cache_stats):
             right_type="adouble",
             result_type="NPY_DOUBLE",
             loop_function="DOUBLE_arctan2",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="arctan2",
+            left_type="afloat",
+            right_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_arctan2",
             impl_template="function_binop.mako",
         ),
         FunctionBinOp(
@@ -939,6 +979,262 @@ def build_derivatives(flatten, cache_stats):
             loop_function="DOUBLE_multiply",
             impl_template="function_binop.mako",
         ),
+        FunctionBinOp(
+            operation="multiply",
+            left_type="adouble",
+            right_type="sdouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_multiply",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="multiply",
+            left_type="adouble",
+            right_type="along",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_multiply",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="true_divide",
+            left_type="adouble",
+            right_type="adouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_multiply",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="true_divide",
+            left_type="adouble",
+            right_type="sdouble",
+            result_type="NPY_DOUBLE",
+            loop_function="DOUBLE_multiply",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="bitwise_and",
+            left_type="along",
+            right_type="along",
+            result_type="NPY_LONG",
+            loop_function="LONG_bitwise_and",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="bitwise_and",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_bitwise_and",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="bitwise_count",
+            left_type="along",
+            right_type="along",
+            result_type="NPY_LONG",
+            loop_function="LONG_bitwise_count",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="bitwise_count",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_bitwise_count",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="bitwise_or",
+            left_type="along",
+            right_type="along",
+            result_type="NPY_LONG",
+            loop_function="LONG_bitwise_or",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="bitwise_or",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_bitwise_or",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="bitwise_xor",
+            left_type="along",
+            right_type="along",
+            result_type="NPY_LONG",
+            loop_function="LONG_bitwise_xor",
+            impl_template="function_binop.mako",
+        ),
+        FunctionBinOp(
+            operation="bitwise_xor",
+            left_type="aint",
+            right_type="aint",
+            result_type="NPY_INT",
+            loop_function="INT_bitwise_xor",
+            impl_template="function_binop.mako",
+        ),         
+        FunctionBinOp(
+                operation="copysign",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_copysign",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="copysign",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_copysign",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="cos",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_cos",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="cos",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_cos",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="cosh",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_cosh",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="cosh",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_cosh",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="divmod",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_divmod",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="divmod",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_divmod",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="floor_divide",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_floor_divide",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="floor_divide",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_floor_divide",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="fmax",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_fmax",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="fmax",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_fmax",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="fmax",
+                left_type="acomplex",
+                right_type="acomplex",
+                result_type="NPY_CDOUBLE",
+                loop_function="CDOUBLE_fmax",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="fmin",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_fmin",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="fmin",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_fmin",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="fmin",
+                left_type="acomplex",
+                right_type="acomplex",
+                result_type="NPY_CDOUBLE",
+                loop_function="CDOUBLE_fmin",
+                impl_template="function_binop.mako"
+        ),
+
+        FunctionBinOp(
+                operation="gcd",
+                left_type="aint",
+                right_type="aint",
+                result_type="NPY_INT",
+                loop_function="INT_gcd",
+                impl_template="function_binop.mako"
+        ),
+        FunctionBinOp(
+                operation="gcd",
+                left_type="along",
+                right_type="along",
+                result_type="NPY_LONG",
+                loop_function="LONG_gcd",
+                impl_template="function_binop.mako"
+        ),   
         FunctionOneOp(
             operation="square",
             left_type="aint",
@@ -1024,13 +1320,13 @@ def build_derivatives(flatten, cache_stats):
              loop_function="FLOAT_tanh",
              impl_template="function_oneop.mako",
          ),
-        #  FunctionOneOp(
-        #      operation="tanh",
-        #      left_type="sfloat",
-        #      result_type="NPY_FLOAT",
-        #      loop_function="FLOAT_tanh",
-        #      impl_template="function_oneop.mako",
-        #  ),
+         FunctionOneOp(
+             operation="tanh",
+             left_type="sfloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_tanh",
+             impl_template="function_oneop.mako",
+         ),
          FunctionOneOp(
              operation="tanh",
              left_type="adouble",
@@ -1038,13 +1334,13 @@ def build_derivatives(flatten, cache_stats):
              loop_function="DOUBLE_tanh",
              impl_template="function_oneop.mako",
          ),
-        #  FunctionOneOp(
-        #      operation="tanh",
-        #      left_type="sdouble",
-        #      result_type="NPY_DOUBLE",
-        #      loop_function="DOUBLE_tanh",
-        #      impl_template="function_oneop.mako",
-        #  ),
+         FunctionOneOp(
+             operation="tanh",
+             left_type="sdouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_tanh",
+             impl_template="function_oneop.mako",
+         ),
          FunctionOneOp(
              operation="exp",
              left_type="afloat",
@@ -1052,13 +1348,13 @@ def build_derivatives(flatten, cache_stats):
              loop_function="FLOAT_exp",
              impl_template="function_oneop.mako",
          ),
-        #  FunctionOneOp(
-        #      operation="exp",
-        #      left_type="sfloat",
-        #      result_type="NPY_FLOAT",
-        #      loop_function="FLOAT_exp",
-        #      impl_template="function_oneop.mako",
-        #  ),
+         FunctionOneOp(
+             operation="exp",
+             left_type="sfloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_exp",
+             impl_template="function_oneop.mako",
+         ),
          FunctionOneOp(
              operation="exp",
              left_type="adouble",
@@ -1066,13 +1362,331 @@ def build_derivatives(flatten, cache_stats):
              loop_function="DOUBLE_exp",
              impl_template="function_oneop.mako",
          ),
-        #  FunctionOneOp(
-        #      operation="exp",
-        #      left_type="sdouble",
-        #      result_type="NPY_DOUBLE",
-        #      loop_function="DOUBLE_exp",
-        #      impl_template="function_oneop.mako",
-        #  ),
+         FunctionOneOp(
+             operation="exp",
+             left_type="sdouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_exp",
+             impl_template="function_oneop.mako",
+         ),
+        FunctionOneOp(
+             operation="exp2",
+             left_type="sdouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_exp2",
+             impl_template="function_oneop.mako",
+         ),
+        FunctionOneOp(
+             operation="exp2",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_exp2",
+             impl_template="function_oneop.mako",
+         ),
+        FunctionOneOp(
+             operation="exp2",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_exp2",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arccos",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_arccos",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arccos",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_arccos",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arccosh",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_arccosh",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arccosh",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_arccosh",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arcsin",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_arcsin",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arcsin",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_arcsin",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arcsinh",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_arcsinh",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arcsinh",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_arcsinh",
+             impl_template="function_oneop.mako",
+        ), 
+        FunctionOneOp(
+             operation="arctanh",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_arctanh",
+             impl_template="function_oneop.mako",
+        ), 
+        FunctionOneOp(
+             operation="arctanh",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_arctanh",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="arctan",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_arctan",
+             impl_template="function_oneop.mako",
+        ), 
+        FunctionOneOp(
+             operation="arctan",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_arctan",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="cbrt",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_cbrt",
+             impl_template="function_oneop.mako",
+        ), 
+        FunctionOneOp(
+             operation="cbrt",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_cbrt",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="ceil",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_ceil",
+             impl_template="function_oneop.mako",
+        ), 
+        FunctionOneOp(
+             operation="ceil",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_ceil",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="ceil",
+             left_type="abool",
+             result_type="NPY_BOOL",
+             loop_function="BOOL_ceil",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="conjugate",
+             left_type="afloat",
+             result_type="NPY_FLOAT",
+             loop_function="FLOAT_conjugate",
+             impl_template="function_oneop.mako",
+        ), 
+        FunctionOneOp(
+             operation="conjugate",
+             left_type="adouble",
+             result_type="NPY_DOUBLE",
+             loop_function="DOUBLE_conjugate",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="conjugate",
+             left_type="along",
+             result_type="NPY_LONG",
+             loop_function="LONG_conjugate",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="conjugate",
+             left_type="aint",
+             result_type="NPY_INT",
+             loop_function="INT_conjugate",
+             impl_template="function_oneop.mako",
+        ),
+        FunctionOneOp(
+             operation="conjugate",
+             left_type="acomplex",
+             result_type="NPY_CDOUBLE",
+             loop_function="CDOUBLE_conjugate",
+             impl_template="function_oneop.mako",
+        ), 
+        FunctionOneOp(
+                operation="expm1",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_expm1",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="expm1",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_expm1",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="floor",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_floor",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="floor",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_floor",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="frexp",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_frexp",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="frexp",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_frexp",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="invert",
+                left_type="along",
+                result_type="NPY_LONG",
+                loop_function="LONG_invert",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="invert",
+                left_type="aint",
+                result_type="NPY_INT",
+                loop_function="INT_invert",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isfinite",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_isfinite",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isfinite",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_isfinite",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isfinite",
+                left_type="along",
+                result_type="NPY_LONG",
+                loop_function="LONG_isfinite",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isfinite",
+                left_type="aint",
+                result_type="NPY_INT",
+                loop_function="INT_isfinite",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isfinite",
+                left_type="abool",
+                result_type="NPY_BOOL",
+                loop_function="BOOL_isfinite",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isinf",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_isinf",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isinf",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_isinf",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isinf",
+                left_type="along",
+                result_type="NPY_LONG",
+                loop_function="LONG_isinf",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isinf",
+                left_type="aint",
+                result_type="NPY_INT",
+                loop_function="INT_isinf",
+                impl_template="function_oneop.mako"
+        ),
+
+        FunctionOneOp(
+                operation="isinf",
+                left_type="abool",
+                result_type="NPY_BOOL",
+                loop_function="BOOL_isinf",
+                impl_template="function_oneop.mako"
+        ),
         FunctionBinOpKw(
             operation="add",
             left_type="aint",
@@ -1139,12 +1753,322 @@ def build_derivatives(flatten, cache_stats):
             loop_function="DOUBLE_multiply",
             impl_template="function_binop_kw.mako",
         ),
+        FunctionBinOpKw(
+                operation="copysign",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_copysign",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="copysign",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_copysign",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="cos",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_cos",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="cos",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_cos",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="cosh",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_cosh",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="cosh",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_cosh",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="divmod",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_divmod",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="divmod",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_divmod",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="floor_divide",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_floor_divide",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="floor_divide",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_floor_divide",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="fmax",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_fmax",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="fmax",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_fmax",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="fmax",
+                left_type="acomplex",
+                right_type="acomplex",
+                result_type="NPY_CDOUBLE",
+                loop_function="CDOUBLE_fmax",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="fmin",
+                left_type="afloat",
+                right_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_fmin",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="fmin",
+                left_type="adouble",
+                right_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_fmin",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="fmin",
+                left_type="acomplex",
+                right_type="acomplex",
+                result_type="NPY_CDOUBLE",
+                loop_function="CDOUBLE_fmin",
+                impl_template="function_binop_kw.mako"
+        ),
+
+        FunctionBinOpKw(
+                operation="gcd",
+                left_type="aint",
+                right_type="aint",
+                result_type="NPY_INT",
+                loop_function="INT_gcd",
+                impl_template="function_binop_kw.mako"
+        ),
+        FunctionBinOpKw(
+                operation="gcd",
+                left_type="along",
+                right_type="along",
+                result_type="NPY_LONG",
+                loop_function="LONG_gcd",
+                impl_template="function_binop_kw.mako"
+        ),
         FunctionOneOpKw(
             operation='sqrt',
             left_type="adouble",
             result_type="NPY_DOUBLE",
             loop_function="DOUBLE_sqrt",
             impl_template="function_oneop_kw.mako",
+        ),
+        FunctionOneOpKw(
+            operation='sqrt',
+            left_type="afloat",
+            result_type="NPY_FLOAT",
+            loop_function="FLOAT_sqrt",
+            impl_template="function_oneop_kw.mako",
+        ),
+        FunctionOneOpKw(
+                operation="expm1",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_expm1",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="expm1",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_expm1",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="floor",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_floor",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="floor",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_floor",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="frexp",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_frexp",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="frexp",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_frexp",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="invert",
+                left_type="along",
+                result_type="NPY_LONG",
+                loop_function="LONG_invert",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="invert",
+                left_type="aint",
+                result_type="NPY_INT",
+                loop_function="INT_invert",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isfinite",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_isfinite",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isfinite",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_isfinite",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isfinite",
+                left_type="along",
+                result_type="NPY_LONG",
+                loop_function="LONG_isfinite",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isfinite",
+                left_type="aint",
+                result_type="NPY_INT",
+                loop_function="INT_isfinite",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isfinite",
+                left_type="abool",
+                result_type="NPY_BOOL",
+                loop_function="BOOL_isfinite",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isinf",
+                left_type="afloat",
+                result_type="NPY_FLOAT",
+                loop_function="FLOAT_isinf",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isinf",
+                left_type="adouble",
+                result_type="NPY_DOUBLE",
+                loop_function="DOUBLE_isinf",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isinf",
+                left_type="along",
+                result_type="NPY_LONG",
+                loop_function="LONG_isinf",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isinf",
+                left_type="aint",
+                result_type="NPY_INT",
+                loop_function="INT_isinf",
+                impl_template="function_oneop_kw.mako"
+        ),
+        
+        FunctionOneOpKw(
+                operation="isinf",
+                left_type="abool",
+                result_type="NPY_BOOL",
+                loop_function="BOOL_isinf",
+                impl_template="function_oneop_kw.mako"
         ),
     ]
 
@@ -1210,7 +2134,7 @@ def generate_case_guards(derivatives, lookup, out,template_):
     binops = [
         d
         for d in derivatives
-        if isinstance(d, BinOp) and not isinstance(d, FunctionBinOp)
+        if isinstance(d, BinOp) and not isinstance(d, FunctionBinOp) and not isinstance(d,FunctionBinOpKw)
     ]
     groups = defaultdict(list)
     for binop in binops:
