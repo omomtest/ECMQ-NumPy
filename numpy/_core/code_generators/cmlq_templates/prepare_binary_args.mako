@@ -42,6 +42,10 @@
             <%count_stat("left_type_misses")%>
             goto deopt;
         }
+        %if casting_complex is not None:
+            lhs = (PyArrayObject *)PyArray_CastToType(lhs, PyArray_DescrFromType(${casting_complex}), 0);
+        %endif
+
     %endif
 
     %if not right_scalar_name is UNDEFINED:
@@ -70,6 +74,9 @@
             <%count_stat("right_type_misses")%>
             goto deopt;
         }
+        %if casting_complex is not None:
+            lhs = (PyArrayObject *)PyArray_CastToType(lhs, PyArray_DescrFromType(${casting_complex}), 0);
+        %endif
     %endif
 
     // No need to check for ufunc overrides as we check for ndarray exact type

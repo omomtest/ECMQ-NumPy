@@ -1,5 +1,6 @@
 ${signature}
 {
+    ## fprintf(stderr, "%s\n", "${signature}");
     //CMLQ_PAPI_BEGIN("${opname}")
     %if locality_cache or locality_stats or cache_broadcast_array:
     <%include file="load_cache_elem.mako"/>
@@ -14,6 +15,7 @@ ${signature}
     <%include file="array_op.mako" args="try_elide_temp=True"/>
 
 deopt:
+## fprintf(stderr, "deopt\n");
     %if locality_cache:
     elem = (CMLQLocalityCacheElem *)external_cache_pointer;
     if (elem->state != UNUSED) {
@@ -34,6 +36,7 @@ deopt:
     return 2;
 
 success:
+## fprintf(stderr, "success\n");
 %if cache_broadcast_array and left_scalar_name is not UNDEFINED:
     // the lhs is a cached broadcast array, no decref
 %else:

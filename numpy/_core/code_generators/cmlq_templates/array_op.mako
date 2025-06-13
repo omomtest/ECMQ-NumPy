@@ -87,7 +87,6 @@
     %endif
 
     <%count_stat("temp_elision_hits", "result != NULL")%>
-
     if(fast_path == 1) {
         <%count_stat("trivial_case")%>
         %if not inplace:

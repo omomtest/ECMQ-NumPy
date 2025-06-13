@@ -71,6 +71,7 @@ class BinOp:
     # canonicalizing commutative operands happens before a possible promotion
     left_promotion: str = None
     right_promotion: str = None
+    casting_complex:str=None
     result_type: str
 
     # like the above, but does not force promotion if the Python scalar does not fit into the NumPy type
@@ -416,16 +417,16 @@ def build_derivatives(flatten, cache_stats):
         ),
 
 
-        # These cases lead to issues with legacy, value-based promotion. Small long or float values are promoted to
-        # float arrays, but our optimization always promotes them to long/double arrays. This leads to incorrect
-        # strides. We don't want the whole value-based promotion logic in the derivatives, but we could perform the
-        # value-based promotion at rewrite-time for variants with cached broadcast arrays (i.e. where one of the
-        # operands is constant). As the cost of value-based promotion is paid only once there, it could be profitable.
-        # This is not implemented yet, so we disable these cases for now.
+            # These cases lead to issues with legacy, value-based promotion. Small long or float values are promoted to
+            # float arrays, but our optimization always promotes them to long/double arrays. This leads to incorrect
+            # strides. We don't want the whole value-based promotion logic in the derivatives, but we could perform the
+            # value-based promotion at rewrite-time for variants with cached broadcast arrays (i.e. where one of the
+            # operands is constant). As the cost of value-based promotion is paid only once there, it could be profitable.
+            # This is not implemented yet, so we disable these cases for now.
 
-        # Another issue is that even without value-based promotion, the Python scalar is promoted to an array that can
-        # fit the value of the scalar. In other words, the exact array type we need depends on a runtime value. These
-        # cases could still be optimized by introducing a guard for the value range, but this is not implemented yet.
+            # Another issue is that even without value-based promotion, the Python scalar is promoted to an array that can
+            # fit the value of the scalar. In other words, the exact array type we need depends on a runtime value. These
+            # cases could still be optimized by introducing a guard for the value range, but this is not implemented yet.
 
         # BinOp(
         #     operation="add",
@@ -616,13 +617,13 @@ def build_derivatives(flatten, cache_stats):
             result_type="NPY_CDOUBLE",
             loop_function="CDOUBLE_multiply",
         ),
-        BinOp(
-            operation="multiply",
-            left_type="acomplex",
-            right_type="along",
-            result_type="NPY_CDOUBLE",
-            loop_function="CDOUBLE_multiply",
-        ),
+        # BinOp(
+        #     operation="multiply",
+        #     left_type="acomplex",
+        #     right_type="along",
+        #     result_type="NPY_CDOUBLE",
+        #     loop_function="CDOUBLE_multiply",
+        # ),
         BinOp(
             operation="multiply",
             left_type="acomplex",
@@ -643,6 +644,7 @@ def build_derivatives(flatten, cache_stats):
             right_type="scomplex",
             result_type="NPY_CDOUBLE",
             loop_function="CDOUBLE_multiply",
+            casting_complex="NPY_CDOUBLE",
         ),
         BinOp(
             operation="multiply",
@@ -650,6 +652,8 @@ def build_derivatives(flatten, cache_stats):
             right_type="scomplex",
             result_type="NPY_CDOUBLE",
             loop_function="CDOUBLE_multiply",
+            casting_complex="NPY_CDOUBLE",
+
         ),
         BinOp(
             operation="multiply",
@@ -657,6 +661,7 @@ def build_derivatives(flatten, cache_stats):
             right_type="scomplex",
             result_type="NPY_CDOUBLE",
             loop_function="CDOUBLE_multiply",
+            casting_complex="NPY_CDOUBLE",
         ),
         # this case requires potential casting of the long array, which is not currently implemented
         # see check_for_trivial_loop in multiarraymodule.c
@@ -934,30 +939,6 @@ def build_derivatives(flatten, cache_stats):
             loop_function="DOUBLE_multiply",
             impl_template="function_binop.mako",
         ),
-        # FunctionBinOp(
-        #     operation="matmul",
-        #     left_type="adouble",
-        #     right_type="adouble",
-        #     result_type="NPY_DOUBLE",
-        #     loop_function="DOUBLE_matmul",
-        #     impl_template="matmul.mako",
-        # ),
-        # FunctionBinOp(
-        #     operation="matmul",
-        #     left_type="afloat",
-        #     right_type="afloat",
-        #     result_type="NPY_FLOAT",
-        #     loop_function="FLOAT_matmul",
-        #     impl_template="function_binop.mako",
-        # ),
-        # FunctionBinOp(
-        #     operation="matmul",
-        #     left_type="aint",
-        #     right_type="aint",
-        #     result_type="NPY_INT",
-        #     loop_function="INT_matmul",
-        #     impl_template="function_binop.mako",
-        # ),
         FunctionOneOp(
             operation="square",
             left_type="aint",
